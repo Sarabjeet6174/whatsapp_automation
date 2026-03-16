@@ -66,8 +66,16 @@ def send_whatsapp_via_web(
         # Give you time to scan QR code on first run and for chat to load.
         wait = WebDriverWait(driver, 180)
 
+        logger.info(
+            "Starting WhatsApp send. receiver_identifier=%r, is_group=%s, has_attachment=%s",
+            receiver_identifier,
+            is_group,
+            bool(attachment_path),
+        )
+
         if is_group:
             # Open WhatsApp Web home and search for the group by name.
+            logger.info("Opening WhatsApp Web home for group search...")
             driver.get("https://web.whatsapp.com/")
 
             # Wait for the search box. WhatsApp Web changes its DOM often,
@@ -98,6 +106,7 @@ def send_whatsapp_via_web(
             last_exc: Optional[Exception] = None
             for locator in search_locators:
                 try:
+                    logger.info("Trying search box locator: %r", locator)
                     search_box = wait.until(
                         EC.element_to_be_clickable(locator)
                     )
@@ -112,6 +121,7 @@ def send_whatsapp_via_web(
                     f"Could not locate WhatsApp search box. Last error: {last_exc}"
                 )
 
+            logger.info("Search box found, searching for group %r", receiver_identifier)
             search_box.click()
             search_box.clear()
             search_box.send_keys(receiver_identifier)
@@ -122,6 +132,7 @@ def send_whatsapp_via_web(
 
             # Best-effort fallback: if the chat is not open yet, try clicking it explicitly.
             try:
+                logger.info("Trying to click explicit chat span for %r", receiver_identifier)
                 chat = wait.until(
                     EC.element_to_be_clickable(
                         (By.XPATH, f"//span[@title='{receiver_identifier}']")
@@ -141,9 +152,11 @@ def send_whatsapp_via_web(
 
             encoded_message = quote_plus(message)
             chat_url = f"https://web.whatsapp.com/send?phone={phone_digits}"
+            logger.info("Opening direct chat URL: %s", chat_url)
             driver.get(chat_url)
 
         # Give WhatsApp a bit more time to fully load the chat UI.
+        logger.info("Waiting 5s for chat UI to fully load...")
         time.sleep(5)
 
         # Wait for message input box to be available (support multiple DOM variants).
@@ -163,6 +176,7 @@ def send_whatsapp_via_web(
         last_exc: Optional[Exception] = None
         for locator in message_box_locators:
             try:
+                logger.info("Trying message box locator: %r", locator)
                 message_box = wait.until(
                     EC.element_to_be_clickable(locator)
                 )
@@ -176,51 +190,141 @@ def send_whatsapp_via_web(
             raise RuntimeError(
                 f"Could not locate WhatsApp message box. Last error: {last_exc}"
             )
+        logger.info("Message box located successfully.")
 
         # Handle optional attachment (images/videos/other files) FIRST, then caption.
         if attachment_path:
             logger.info("Attaching file at path %s", attachment_path)
 
             # 1) Click the chat footer Attach button (the plus-rounded button).
-            attach_button = wait.until(
-                EC.element_to_be_clickable(
-                    (By.XPATH, "//button[@aria-label='Attach' and @data-tab='10']")
+            # Prefer the button that lives inside the footer so we don't trigger
+            # the global "Select contacts" / forwarding dialog.
+            attach_locators = [
+                (By.XPATH, "//footer//button[@aria-label='Attach']"),
+                (By.XPATH, "//button[@aria-label='Attach' and @data-tab='10']"),
+                (By.XPATH, "//button[@aria-label='Attach']"),
+            ]
+
+            attach_button = None
+            last_exc = None
+            for locator in attach_locators:
+                try:
+                    logger.info("Trying attach button locator: %r", locator)
+                    attach_button = wait.until(
+                        EC.element_to_be_clickable(locator)
+                    )
+                    if attach_button:
+                        break
+                except (TimeoutException, WebDriverException) as exc:
+                    last_exc = exc
+                    continue
+
+            if not attach_button:
+                raise RuntimeError(
+                    f"Could not locate WhatsApp attach button. Last error: {last_exc}"
                 )
-            )
+
             attach_button.click()
+            logger.info("Attach button clicked.")
 
             # 2) Use the file input that belongs to this chat's footer.
-            file_input = wait.until(
-                EC.presence_of_element_located(
-                    (By.XPATH, "//footer//input[@type='file']")
-                )
-            )
-            file_input.send_keys(attachment_path)
+            # Scope to footer and prefer inputs that explicitly have an accept attribute.
+            file_input_locators = [
+                (By.XPATH, "//footer//input[@type='file' and @accept]"),
+                (By.XPATH, "//footer//input[@type='file']"),
+                (By.XPATH, "//input[@type='file' and @accept]"),
+            ]
 
-            # 3) Wait for the send button in the preview and click it.
-            send_button = wait.until(
-                EC.element_to_be_clickable(
-                    (
-                        By.XPATH,
-                        "//span[@data-icon='send']/ancestor::div[@role='button']",
+            file_input = None
+            last_exc = None
+            for locator in file_input_locators:
+                try:
+                    logger.info("Trying file input locator: %r", locator)
+                    file_input = wait.until(
+                        EC.presence_of_element_located(locator)
                     )
+                    if file_input:
+                        break
+                except (TimeoutException, WebDriverException) as exc:
+                    last_exc = exc
+                    continue
+
+            if not file_input:
+                raise RuntimeError(
+                    f"Could not locate WhatsApp file input. Last error: {last_exc}"
                 )
-            )
 
-            # Optional caption/message after attaching (before clicking send).
-            if message:
-                message_box.click()
-                message_box.send_keys(message)
+            file_input.send_keys(os.path.abspath(attachment_path))
+            logger.info("File path sent to file input.")
 
-            send_button.click()
+            # 3) Give WhatsApp a bit of time to build the preview (especially for videos / large files).
+            try:
+                logger.info("Waiting for WhatsApp to build the attachment preview...")
+                time.sleep(3)
+            except Exception:
+                pass
+
+            # 4) Wait for the send button in the preview and click it.
+            send_button_locators = [
+                # Most reliable: send button inside the footer/preview area.
+                (
+                    By.XPATH,
+                    "//footer//span[@data-icon='send']/ancestor::div[@role='button']",
+                ),
+                (
+                    By.XPATH,
+                    "//span[@data-icon='send']/ancestor::div[@role='button']",
+                ),
+                (By.XPATH, "//button[@aria-label='Send']"),
+            ]
+
+            send_button = None
+            last_exc = None
+            for locator in send_button_locators:
+                try:
+                    logger.info("Trying send button locator: %r", locator)
+                    send_button = wait.until(
+                        EC.element_to_be_clickable(locator)
+                    )
+                    if send_button:
+                        break
+                except (TimeoutException, WebDriverException) as exc:
+                    last_exc = exc
+                    continue
+
+            if not send_button:
+                # As a final fallback, try clicking the raw send icon via JS if it exists.
+                try:
+                    logger.info("Falling back to JS click on raw send icon...")
+                    raw_send_icon = driver.find_element(By.XPATH, "//span[@data-icon='send']")
+                    driver.execute_script("arguments[0].click();", raw_send_icon)
+                except Exception as exc:
+                    raise RuntimeError(
+                        f"Could not locate WhatsApp send button. Last error: {last_exc}"
+                    ) from exc
+            else:
+                # Optional caption/message after attaching (before clicking send).
+                if message:
+                    logger.info("Adding caption message before sending attachment...")
+                    message_box.click()
+                    message_box.send_keys(message)
+
+                logger.info("Clicking send button for attachment...")
+                try:
+                    send_button.click()
+                except WebDriverException:
+                    logger.info("Standard click failed, retrying with JS click...")
+                    driver.execute_script("arguments[0].click();", send_button)
         else:
             # No attachment: just send plain text if provided.
             if message:
+                logger.info("Sending plain text message (no attachment).")
                 message_box.click()
                 message_box.send_keys(message)
                 message_box.send_keys(Keys.ENTER)
 
         # Allow time for send so you can see it succeed.
+        logger.info("Waiting 5s after send so you can visually confirm in browser...")
         time.sleep(5)
     except WebDriverException as exc:
         logger.exception("Selenium/WebDriver error while sending WhatsApp message")
