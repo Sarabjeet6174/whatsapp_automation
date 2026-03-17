@@ -15,9 +15,15 @@ import os
 import logging
 from typing import Optional
 
+from dotenv import load_dotenv
+import pyodbc
+import random
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 
 app = FastAPI(title="WhatsApp Sender (Selenium)")
@@ -29,6 +35,36 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def get_sql_conn() -> pyodbc.Connection:
+    """
+    Create a SQL Server connection using environment variables and ODBC Driver 18.
+
+    Expected env vars:
+      SQL_SERVER, SQL_DATABASE, SQL_USER, SQL_PASSWORD
+    """
+    server = os.getenv("SQL_SERVER")
+    database = os.getenv("SQL_DATABASE")
+    user = os.getenv("SQL_USER")
+    password = os.getenv("SQL_PASSWORD")
+
+    if not all([server, database, user, password]):
+        raise RuntimeError(
+            "SQL connection env vars missing. "
+            "Please set SQL_SERVER, SQL_DATABASE, SQL_USER, SQL_PASSWORD."
+        )
+
+    conn_str = (
+        "DRIVER={ODBC Driver 18 for SQL Server};"
+        f"SERVER={server};"
+        f"DATABASE={database};"
+        f"UID={user};"
+        f"PWD={password};"
+        "Encrypt=yes;"
+        "TrustServerCertificate=yes;"
+    )
+    return pyodbc.connect(conn_str)
 
 
 def normalize_phone_for_wa(phone: str) -> str:
@@ -336,6 +372,111 @@ def send_whatsapp_via_web(
             pass
 
 
+def process_pending_messages_from_sql(pause_seconds: int = 2, test_override_number: str | None = None) -> None:
+    """
+    Read pending messages from SQL Server and send them one by one
+    with a small pause between each message.
+    Mirrors the VBA TRAN_MSG_REQUEST / MST_CLIENT query.
+    """
+    conn = get_sql_conn()
+    cursor = conn.cursor()
+
+    sql = """
+    SELECT
+        CLIENT_IDNO,
+        TMR_IDNO,
+        TMR_FROM_NO,
+        TMR_TO_NO,
+        TMR_MSG,
+        TMR_SCH_DTTIME,
+        TMR_STATUS,
+        ISNULL(TMR_GROUP_NAME, 'NA') AS TMR_GROUP_NAME
+    FROM TRAN_MSG_REQUEST WITH (NOLOCK)
+    JOIN MST_CLIENT WITH (NOLOCK) ON TMR_FROM_NO = CLIENT_PHNO
+    WHERE
+        TMR_STATUS = 'PENDING'
+        AND TMR_SCH_DTTIME < GETDATE()
+        AND TMR_FROM_NO IS NOT NULL
+        AND TMR_TO_NO IS NOT NULL
+    ORDER BY TMR_SCH_DTTIME
+    """
+
+    logger.info("Fetching pending messages from SQL Server...")
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+
+    for row in rows:
+        client_idno = row.CLIENT_IDNO
+        tmr_idno = row.TMR_IDNO
+        from_no = row.TMR_FROM_NO
+        to_no = row.TMR_TO_NO
+        msg_text = row.TMR_MSG
+        group_name = row.TMR_GROUP_NAME  # 'NA' or actual group name
+
+        logger.info(
+            "Processing TMR_IDNO=%s for client_id=%s, to_no=%s, group=%s",
+            tmr_idno,
+            client_idno,
+            to_no,
+            group_name,
+        )
+
+        # For testing: optionally override sender/receiver numbers so all messages go to you.
+        effective_from_no = from_no
+        effective_to_no = to_no
+        if test_override_number:
+            effective_from_no = test_override_number
+            effective_to_no = test_override_number
+            logger.info(
+                "TEST OVERRIDE ACTIVE: using from_no=%s, to_no=%s instead of DB values",
+                effective_from_no,
+                effective_to_no,
+            )
+
+        try:
+            send_whatsapp_via_web(
+                receiver_identifier=str(effective_to_no),
+                message=msg_text or "",
+                is_group=(group_name != "NA"),
+                attachment_path=None,
+            )
+
+            cursor.execute(
+                """
+                UPDATE TRAN_MSG_REQUEST
+                SET TMR_STATUS='SENT', TMR_SENT_TIME=GETDATE()
+                WHERE TMR_IDNO = ?
+                """,
+                tmr_idno,
+            )
+            conn.commit()
+        except Exception as exc:
+            logger.exception("Error sending message for TMR_IDNO=%s", tmr_idno)
+            cursor.execute(
+                """
+                UPDATE TRAN_MSG_REQUEST
+                SET TMR_STATUS='ERROR', TMR_ERR = ?
+                WHERE TMR_IDNO = ?
+                """,
+                str(exc)[:500],
+                tmr_idno,
+            )
+            conn.commit()
+
+        # Pause between messages (similar to Delay in VBA).
+        # If pause_seconds is <= 0, use a random delay between 4 and 13 seconds.
+        if pause_seconds > 0:
+            time.sleep(pause_seconds)
+        else:
+            lowerbound = 4
+            upperbound = 13
+            delay_seconds = lowerbound + (upperbound - lowerbound) * (random.random())
+            time.sleep(delay_seconds)
+
+    cursor.close()
+    conn.close()
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> HTMLResponse:
     html = """
@@ -543,6 +684,22 @@ async def send_whatsapp(
         return {"status": "ok"}
     except Exception as exc:
         logger.exception("Error in /send-whatsapp endpoint")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(exc)},
+        )
+
+
+@app.post("/process-sql-queue")
+async def process_sql_queue():
+    """
+    Trigger processing of pending messages from SQL Server.
+    """
+    try:
+        process_pending_messages_from_sql(pause_seconds=2)
+        return {"status": "ok", "detail": "Processed pending SQL messages"}
+    except Exception as exc:
+        logger.exception("Error while processing SQL message queue")
         return JSONResponse(
             status_code=500,
             content={"detail": str(exc)},
