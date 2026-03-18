@@ -372,7 +372,11 @@ def send_whatsapp_via_web(
             pass
 
 
-def process_pending_messages_from_sql(pause_seconds: int = 2, test_override_number: str | None = None) -> None:
+def process_pending_messages_from_sql(
+    pause_seconds: int = 0,
+    test_override_from_no: str | None = None,
+    test_override_to_no: str | None = None,
+) -> None:
     """
     Read pending messages from SQL Server and send them one by one
     with a small pause between each message.
@@ -421,23 +425,36 @@ def process_pending_messages_from_sql(pause_seconds: int = 2, test_override_numb
             group_name,
         )
 
+        # Decide whether we are sending to a group or a direct number.
+        is_group = group_name != "NA"
+
         # For testing: optionally override sender/receiver numbers so all messages go to you.
+        # OVERRIDE RULE: apply overrides only when this row is NOT a group message.
         effective_from_no = from_no
         effective_to_no = to_no
-        if test_override_number:
-            effective_from_no = test_override_number
-            effective_to_no = test_override_number
-            logger.info(
-                "TEST OVERRIDE ACTIVE: using from_no=%s, to_no=%s instead of DB values",
-                effective_from_no,
-                effective_to_no,
-            )
+        if not is_group:
+            if test_override_from_no:
+                effective_from_no = test_override_from_no
+            if test_override_to_no:
+                effective_to_no = test_override_to_no
+
+            if test_override_from_no or test_override_to_no:
+                logger.info(
+                    "TEST OVERRIDE ACTIVE: using from_no=%s, to_no=%s instead of DB values",
+                    effective_from_no,
+                    effective_to_no,
+                )
+
+        if is_group:
+            target_identifier = group_name
+        else:
+            target_identifier = str(effective_to_no)
 
         try:
             send_whatsapp_via_web(
-                receiver_identifier=str(effective_to_no),
+                receiver_identifier=target_identifier,
                 message=msg_text or "",
-                is_group=(group_name != "NA"),
+                is_group=is_group,
                 attachment_path=None,
             )
 
