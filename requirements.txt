@@ -4,3 +4,4 @@ python-dotenv
 python-multipart
 selenium
 webdriver-manager
+pyodbc
