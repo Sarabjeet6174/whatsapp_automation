@@ -73,11 +73,27 @@ def normalize_phone_for_wa(phone: str) -> str:
     return digits
 
 
+def create_whatsapp_driver() -> webdriver.Chrome:
+    user_data_dir = os.path.join(os.getcwd(), "chrome_profile")
+
+    chrome_options = Options()
+    chrome_options.add_argument("--user-data-dir=" + user_data_dir)
+    chrome_options.add_argument("--profile-directory=Default")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--no-sandbox")
+    # Helps avoid "DevToolsActivePort file doesn't exist" on some Windows setups.
+    chrome_options.add_argument("--remote-debugging-port=9222")
+
+    service = Service(ChromeDriverManager().install())
+    return webdriver.Chrome(service=service, options=chrome_options)
+
+
 def send_whatsapp_via_web(
     receiver_identifier: str,
     message: str,
     is_group: bool = False,
     attachment_path: Optional[str] = None,
+    driver: Optional[webdriver.Chrome] = None,
 ) -> None:
     """
     Use Selenium to open WhatsApp Web and send a message (and optional attachment).
@@ -87,16 +103,18 @@ def send_whatsapp_via_web(
     - If is_group is True, receiver_identifier is treated as the exact group name
       and the chat is opened via the search box in WhatsApp Web.
     """
-    user_data_dir = os.path.join(os.getcwd(), "chrome_profile")
+    owns_driver = driver is None
+    if owns_driver:
+        user_data_dir = os.path.join(os.getcwd(), "chrome_profile")
 
-    chrome_options = Options()
-    chrome_options.add_argument("--user-data-dir=" + user_data_dir)
-    chrome_options.add_argument("--profile-directory=Default")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--no-sandbox")
+        chrome_options = Options()
+        chrome_options.add_argument("--user-data-dir=" + user_data_dir)
+        chrome_options.add_argument("--profile-directory=Default")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--no-sandbox")
 
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=chrome_options)
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=chrome_options)
 
     try:
         # Give you time to scan QR code on first run and for chat to load.
@@ -366,16 +384,19 @@ def send_whatsapp_via_web(
         logger.exception("Selenium/WebDriver error while sending WhatsApp message")
         raise RuntimeError(f"Selenium/WebDriver error: {exc}") from exc
     finally:
-        try:
-            driver.quit()
-        except Exception:
-            pass
+        if owns_driver:
+            try:
+                driver.quit()
+            except Exception:
+                pass
 
 
 def process_pending_messages_from_sql(
     pause_seconds: int = 0,
     test_override_from_no: str | None = None,
     test_override_to_no: str | None = None,
+    driver: Optional[webdriver.Chrome] = None,
+    keep_browser_open: bool = False,
 ) -> None:
     """
     Read pending messages from SQL Server and send them one by one
@@ -409,89 +430,108 @@ def process_pending_messages_from_sql(
     cursor.execute(sql)
     rows = cursor.fetchall()
 
-    for row in rows:
-        client_idno = row.CLIENT_IDNO
-        tmr_idno = row.TMR_IDNO
-        from_no = row.TMR_FROM_NO
-        to_no = row.TMR_TO_NO
-        msg_text = row.TMR_MSG
-        group_name = row.TMR_GROUP_NAME  # 'NA' or actual group name
+    # Reuse a single Chrome session for the whole queue to avoid opening/closing
+    # the browser for every message.
+    owns_driver = driver is None
+    try:
+        shared_driver = driver or create_whatsapp_driver()
+    except Exception as exc:
+        raise RuntimeError(
+            "Chrome failed to start. If you already have Chrome open using the same "
+            "'chrome_profile' folder, close all Chrome windows and try again. "
+            "Otherwise, the profile may be corrupted."
+        ) from exc
 
-        logger.info(
-            "Processing TMR_IDNO=%s for client_id=%s, to_no=%s, group=%s",
-            tmr_idno,
-            client_idno,
-            to_no,
-            group_name,
-        )
+    try:
+        for row in rows:
+            client_idno = row.CLIENT_IDNO
+            tmr_idno = row.TMR_IDNO
+            from_no = row.TMR_FROM_NO
+            to_no = row.TMR_TO_NO
+            msg_text = row.TMR_MSG
+            group_name = row.TMR_GROUP_NAME  # 'NA' or actual group name
 
-        # Decide whether we are sending to a group or a direct number.
-        is_group = group_name != "NA"
+            logger.info(
+                "Processing TMR_IDNO=%s for client_id=%s, to_no=%s, group=%s",
+                tmr_idno,
+                client_idno,
+                to_no,
+                group_name,
+            )
 
-        # For testing: optionally override sender/receiver numbers so all messages go to you.
-        # OVERRIDE RULE: apply overrides only when this row is NOT a group message.
-        effective_from_no = from_no
-        effective_to_no = to_no
-        if not is_group:
-            if test_override_from_no:
-                effective_from_no = test_override_from_no
-            if test_override_to_no:
-                effective_to_no = test_override_to_no
+            # Decide whether we are sending to a group or a direct number.
+            is_group = group_name != "NA"
 
-            if test_override_from_no or test_override_to_no:
-                logger.info(
-                    "TEST OVERRIDE ACTIVE: using from_no=%s, to_no=%s instead of DB values",
-                    effective_from_no,
-                    effective_to_no,
+            # For testing: optionally override sender/receiver numbers so all messages go to you.
+            # OVERRIDE RULE: apply overrides only when this row is NOT a group message.
+            effective_from_no = from_no
+            effective_to_no = to_no
+            if not is_group:
+                if test_override_from_no:
+                    effective_from_no = test_override_from_no
+                if test_override_to_no:
+                    effective_to_no = test_override_to_no
+
+                if test_override_from_no or test_override_to_no:
+                    logger.info(
+                        "TEST OVERRIDE ACTIVE: using from_no=%s, to_no=%s instead of DB values",
+                        effective_from_no,
+                        effective_to_no,
+                    )
+
+            if is_group:
+                target_identifier = group_name
+            else:
+                target_identifier = str(effective_to_no)
+
+            try:
+                send_whatsapp_via_web(
+                    receiver_identifier=target_identifier,
+                    message=msg_text or "",
+                    is_group=is_group,
+                    attachment_path=None,
+                    driver=shared_driver,
                 )
 
-        if is_group:
-            target_identifier = group_name
-        else:
-            target_identifier = str(effective_to_no)
+                cursor.execute(
+                    """
+                    UPDATE TRAN_MSG_REQUEST
+                    SET TMR_STATUS='SENT', TMR_SENT_TIME=GETDATE()
+                    WHERE TMR_IDNO = ?
+                    """,
+                    tmr_idno,
+                )
+                conn.commit()
+            except Exception as exc:
+                logger.exception("Error sending message for TMR_IDNO=%s", tmr_idno)
+                cursor.execute(
+                    """
+                    UPDATE TRAN_MSG_REQUEST
+                    SET TMR_STATUS='ERROR', TMR_ERR = ?
+                    WHERE TMR_IDNO = ?
+                    """,
+                    str(exc)[:500],
+                    tmr_idno,
+                )
+                conn.commit()
 
-        try:
-            send_whatsapp_via_web(
-                receiver_identifier=target_identifier,
-                message=msg_text or "",
-                is_group=is_group,
-                attachment_path=None,
-            )
-
-            cursor.execute(
-                """
-                UPDATE TRAN_MSG_REQUEST
-                SET TMR_STATUS='SENT', TMR_SENT_TIME=GETDATE()
-                WHERE TMR_IDNO = ?
-                """,
-                tmr_idno,
-            )
-            conn.commit()
-        except Exception as exc:
-            logger.exception("Error sending message for TMR_IDNO=%s", tmr_idno)
-            cursor.execute(
-                """
-                UPDATE TRAN_MSG_REQUEST
-                SET TMR_STATUS='ERROR', TMR_ERR = ?
-                WHERE TMR_IDNO = ?
-                """,
-                str(exc)[:500],
-                tmr_idno,
-            )
-            conn.commit()
-
-        # Pause between messages (similar to Delay in VBA).
-        # If pause_seconds is <= 0, use a random delay between 4 and 13 seconds.
-        if pause_seconds > 0:
-            time.sleep(pause_seconds)
-        else:
-            lowerbound = 4
-            upperbound = 13
-            delay_seconds = lowerbound + (upperbound - lowerbound) * (random.random())
-            time.sleep(delay_seconds)
-
-    cursor.close()
-    conn.close()
+            # Pause between messages (similar to Delay in VBA).
+            # If pause_seconds is <= 0, use a random delay between 4 and 13 seconds.
+            if pause_seconds > 0:
+                time.sleep(pause_seconds)
+            else:
+                lowerbound = 4
+                upperbound = 13
+                delay_seconds = lowerbound + (upperbound - lowerbound) * (random.random())
+                time.sleep(delay_seconds)
+    finally:
+        if owns_driver and not keep_browser_open:
+            try:
+                shared_driver.quit()
+            except Exception:
+                pass
+        cursor.close()
+        conn.close()
 
 
 @app.get("/", response_class=HTMLResponse)
