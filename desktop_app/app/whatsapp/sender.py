@@ -5,7 +5,6 @@ Returns "SUCCESS" or error string for DB logging.
 import logging
 import os
 import time
-from typing import Optional
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -25,6 +24,9 @@ GROUP_SEARCH_TIMEOUT = 20
 NUMBER_SEARCH_TIMEOUT = 20
 CHAT_LOAD_TIMEOUT = 60
 
+# WhatsApp Web empty search state (class names change; match visible copy).
+_NO_SEARCH_RESULTS_TEXT = "No chats, contacts or messages found"
+
 
 def _normalize_phone(phone: str) -> str:
     return "".join(c for c in phone if c.isdigit())
@@ -40,6 +42,44 @@ def _clear_search_box(search_box) -> None:
     # Reliable clear for contenteditable/input variants.
     search_box.send_keys(Keys.CONTROL, "a")
     search_box.send_keys(Keys.BACKSPACE)
+
+
+def _search_shows_no_results(driver: webdriver.Chrome) -> bool:
+    """True when WhatsApp shows the standard 'no results' empty search message."""
+    try:
+        xpath = (
+            "//span[contains(normalize-space(.),"
+            f" '{_NO_SEARCH_RESULTS_TEXT}')]"
+        )
+        for el in driver.find_elements(By.XPATH, xpath):
+            try:
+                if el.is_displayed():
+                    return True
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return False
+
+
+def _open_chat_via_phone_link_same_tab(driver: webdriver.Chrome, phone_digits: str) -> bool:
+    """
+    Open the chat in the same tab via WhatsApp Web's send URL (same session, no new tabs).
+    Avoids https://wa.me/... which often opens intermediate pages or target=_blank links.
+    """
+    footer = (By.XPATH, "//footer//div[@contenteditable='true' and @role='textbox']")
+    send_url = f"https://web.whatsapp.com/send?phone={phone_digits}"
+    try:
+        driver.get(send_url)
+    except Exception:
+        return False
+    try:
+        WebDriverWait(driver, CHAT_LOAD_TIMEOUT).until(
+            EC.element_to_be_clickable(footer)
+        )
+        return True
+    except (TimeoutException, WebDriverException):
+        return False
 
 
 def create_driver_for_profile(client_phno: str) -> webdriver.Chrome:
@@ -124,6 +164,9 @@ def send_message(
                     continue
                 _clear_search_box(search_box)
                 search_box.send_keys(term)
+                time.sleep(1.2)
+                if _search_shows_no_results(driver):
+                    break
                 try:
                     # Prefer explicit result row click by title containing the searched number.
                     # WhatsApp formats numbers as '+91 63751 96831', so use contains(...) with variants.
@@ -148,6 +191,8 @@ def send_message(
                     opened = True
                     break
                 except (TimeoutException, WebDriverException):
+                    if _search_shows_no_results(driver):
+                        break
                     # If explicit result click failed, try ENTER fallback on first result.
                     try:
                         search_box.send_keys(Keys.ENTER)
@@ -160,9 +205,14 @@ def send_message(
                         break
                     except (TimeoutException, WebDriverException):
                         pass
+                    if _search_shows_no_results(driver):
+                        break
                     continue
             if not opened:
-                return "Phone not found in WhatsApp search (timeout)"
+                if not _open_chat_via_phone_link_same_tab(driver, phone_digits):
+                    return (
+                        "Phone not found in WhatsApp search; web send link could not open chat"
+                    )
 
         time.sleep(5)
         message_box_locators = [

@@ -1,6 +1,8 @@
 """
 Main Tkinter window: list of clients (profiles), Open/Start/Pause/Resume/Stop, Pause All/Resume All.
 """
+from __future__ import annotations
+
 import logging
 import os
 import queue

@@ -29,11 +29,11 @@ if exist "dist\WhatsAppDesktop.exe" (
   echo.
   echo Done. .exe is at: dist\WhatsAppDesktop.exe
   echo Log saved at: build_last.log - for reference
-  echo Copy .env next to the .exe (same folder) before running, or bundle .env when building.
+  echo Copy .env next to the .exe in the same folder before running, or bundle .env when building.
 ) else (
   echo.
   echo Build failed.
-  echo Open this file to see errors (scroll to the bottom):
+  echo Open build_last.log and scroll to the bottom for errors.
   echo   %~dp0build_last.log
   start "" notepad "%~dp0build_last.log"
   exit /b 1

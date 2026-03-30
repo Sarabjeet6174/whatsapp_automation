@@ -1,6 +1,8 @@
 """
 SQL Server access for desktop app. Uses .env from repo root.
 """
+from __future__ import annotations
+
 import os
 from typing import Any
 

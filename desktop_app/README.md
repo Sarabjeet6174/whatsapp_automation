@@ -37,6 +37,7 @@ No other software (e.g. SQL Server Management Studio, Node.js, etc.) is required
 - **Error handling**: If a message fails, error is saved in DB (`TMR_STATUS='ERROR'`, `TMR_ERR`). Loop continues with the next message. Group search timeout 20s; if group not found, error is logged and processing continues.
 - **Recovery**: If the loop crashes, it restarts automatically after 60 seconds. Scheduler never stops due to one error.
 - **Group vs number**: If both group name and number exist, message is sent to the **group**. Group search is limited to 20 seconds.
+- **Direct number fallback**: If the contact is not found in the WhatsApp Web side search (including the “No chats, contacts or messages found” state), the same Chrome tab navigates to `https://web.whatsapp.com/send?phone=<number>` (digits only, international format as stored) so the session is reused and extra tabs are not opened; if the chat still cannot open, the row is marked ERROR.
 
 ## Database tables required
 
