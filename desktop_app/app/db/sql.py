@@ -60,16 +60,15 @@ def fetch_pending_for_client(client_phno: str) -> list[dict[str, Any]]:
         cursor.execute(
             """
             SELECT
-                CLIENT_IDNO, TMR_IDNO, TMR_FROM_NO, TMR_TO_NO, TMR_MSG,
+                TMR_IDNO, TMR_FROM_NO, TMR_TO_NO, TMR_MSG,
                 TMR_SCH_DTTIME, TMR_STATUS,
                 ISNULL(TMR_GROUP_NAME, 'NA') AS TMR_GROUP_NAME
-            FROM TRAN_MSG_REQUEST WITH (NOLOCK)
-            JOIN MST_CLIENT WITH (NOLOCK) ON TMR_FROM_NO = CLIENT_PHNO
+            FROM TRAN_MSG_REQUEST
             WHERE TMR_STATUS = 'PENDING'
               AND TMR_SCH_DTTIME < GETDATE()
               AND TMR_FROM_NO IS NOT NULL
               AND TMR_TO_NO IS NOT NULL
-              AND CLIENT_PHNO = ?
+              AND TMR_FROM_NO = ?
             ORDER BY TMR_SCH_DTTIME
             """,
             (client_phno,),
@@ -77,7 +76,7 @@ def fetch_pending_for_client(client_phno: str) -> list[dict[str, Any]]:
         rows = cursor.fetchall()
         return [
             {
-                "client_idno": r.CLIENT_IDNO,
+                "client_idno": None,
                 "tmr_idno": r.TMR_IDNO,
                 "from_no": r.TMR_FROM_NO,
                 "to_no": r.TMR_TO_NO,

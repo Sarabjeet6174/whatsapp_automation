@@ -66,6 +66,8 @@ def _open_chat_via_phone_link_same_tab(driver: webdriver.Chrome, phone_digits: s
     """
     Open the chat in the same tab via WhatsApp Web's send URL (same session, no new tabs).
     Avoids https://wa.me/... which often opens intermediate pages or target=_blank links.
+    If WhatsApp shows a modal like \"The number ... isn't on WhatsApp.\", click OK and
+    report failure so the caller can mark the row as ERROR and continue.
     """
     footer = (By.XPATH, "//footer//div[@contenteditable='true' and @role='textbox']")
     send_url = f"https://web.whatsapp.com/send?phone={phone_digits}"
@@ -73,12 +75,30 @@ def _open_chat_via_phone_link_same_tab(driver: webdriver.Chrome, phone_digits: s
         driver.get(send_url)
     except Exception:
         return False
+
     try:
         WebDriverWait(driver, CHAT_LOAD_TIMEOUT).until(
             EC.element_to_be_clickable(footer)
         )
         return True
     except (TimeoutException, WebDriverException):
+        # Check for \"number is not on WhatsApp\" modal and click OK if present.
+        try:
+            modal = driver.find_element(
+                By.XPATH,
+                "//div[contains(normalize-space(.), \"isn't on WhatsApp.\")]",
+            )
+            if modal.is_displayed():
+                try:
+                    ok_btn = modal.find_element(
+                        By.XPATH,
+                        ".//span[normalize-space(text())='OK']/ancestor::button[1]",
+                    )
+                    ok_btn.click()
+                except Exception:
+                    pass
+        except Exception:
+            pass
         return False
 
 
@@ -231,7 +251,14 @@ def send_message(
             return "Message box not found"
         if message:
             message_box.click()
-            message_box.send_keys(message)
+            # Type multiline text as a single WhatsApp message:
+            #   - normal characters with send_keys
+            #   - for '\n' use Shift+Enter (newline) instead of Enter (send)
+            for ch in message:
+                if ch == "\n":
+                    message_box.send_keys(Keys.SHIFT, Keys.ENTER)
+                else:
+                    message_box.send_keys(ch)
             message_box.send_keys(Keys.ENTER)
         time.sleep(3)
         return "SUCCESS"
