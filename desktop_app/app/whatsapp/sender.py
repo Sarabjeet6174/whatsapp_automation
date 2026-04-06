@@ -62,6 +62,45 @@ def _search_shows_no_results(driver: webdriver.Chrome) -> bool:
     return False
 
 
+def _try_dismiss_not_on_whatsapp_modal(driver: webdriver.Chrome) -> bool:
+    """
+    If WhatsApp shows \"The number ... isn't on WhatsApp\", click OK immediately.
+    Uses aria-label on the modal (fast/reliable) plus text fallbacks.
+    Returns True if a modal was dismissed (send flow should stop as failure).
+    """
+    not_on_wa = "isn't on WhatsApp"
+    root_xpaths = [
+        # WhatsApp sets this on the popup wrapper (user-reported DOM).
+        f"//*[contains(@aria-label, \"{not_on_wa}\")]",
+        "//div[@data-animate-modal-popup='true'][.//span[contains(., \"isn't on WhatsApp\")]]",
+        f"//div[contains(normalize-space(.), \"isn't on WhatsApp.\")]",
+    ]
+    ok_rel_xpaths = (
+        ".//span[normalize-space(text())='OK']/ancestor::button[1]",
+        ".//button[.//span[normalize-space(text())='OK']]",
+    )
+    for rx in root_xpaths:
+        try:
+            for root in driver.find_elements(By.XPATH, rx):
+                try:
+                    if not root.is_displayed():
+                        continue
+                except Exception:
+                    continue
+                for ok_xpath in ok_rel_xpaths:
+                    try:
+                        btn = root.find_element(By.XPATH, ok_xpath)
+                        if btn.is_displayed():
+                            btn.click()
+                            time.sleep(0.15)
+                            return True
+                    except Exception:
+                        continue
+        except Exception:
+            continue
+    return False
+
+
 def _open_chat_via_phone_link_same_tab(driver: webdriver.Chrome, phone_digits: str) -> bool:
     """
     Open the chat in the same tab via WhatsApp Web's send URL (same session, no new tabs).
@@ -76,30 +115,21 @@ def _open_chat_via_phone_link_same_tab(driver: webdriver.Chrome, phone_digits: s
     except Exception:
         return False
 
-    try:
-        WebDriverWait(driver, CHAT_LOAD_TIMEOUT).until(
-            EC.element_to_be_clickable(footer)
-        )
-        return True
-    except (TimeoutException, WebDriverException):
-        # Check for \"number is not on WhatsApp\" modal and click OK if present.
+    # Prefer dismissing error modal before checking compose (immediate OK -> next message).
+    deadline = time.time() + CHAT_LOAD_TIMEOUT
+    poll = 0.1
+    while time.time() < deadline:
+        if _try_dismiss_not_on_whatsapp_modal(driver):
+            return False
         try:
-            modal = driver.find_element(
-                By.XPATH,
-                "//div[contains(normalize-space(.), \"isn't on WhatsApp.\")]",
-            )
-            if modal.is_displayed():
-                try:
-                    ok_btn = modal.find_element(
-                        By.XPATH,
-                        ".//span[normalize-space(text())='OK']/ancestor::button[1]",
-                    )
-                    ok_btn.click()
-                except Exception:
-                    pass
+            for el in driver.find_elements(*footer):
+                if el.is_displayed():
+                    return True
         except Exception:
             pass
-        return False
+        time.sleep(poll)
+
+    return False
 
 
 def create_driver_for_profile(client_phno: str) -> webdriver.Chrome:
@@ -234,7 +264,7 @@ def send_message(
                         "Phone not found in WhatsApp search; web send link could not open chat"
                     )
 
-        time.sleep(5)
+        time.sleep(1)
         message_box_locators = [
             (By.XPATH, "//div[@contenteditable='true' and @data-tab='10']"),
             (By.XPATH, "//div[@contenteditable='true' and @data-tab='6']"),
@@ -260,7 +290,7 @@ def send_message(
                 else:
                     message_box.send_keys(ch)
             message_box.send_keys(Keys.ENTER)
-        time.sleep(3)
+        time.sleep(1)
         return "SUCCESS"
     except Exception as e:
         return f"Selenium/error: {e!r}"[:500]

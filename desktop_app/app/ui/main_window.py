@@ -15,6 +15,7 @@ from datetime import datetime
 from urllib.request import urlretrieve
 
 from app.db.sql import fetch_clients
+from app.core.message_loop import SCHEDULER_INTERVAL
 from app.core.profile_state import ProfileState
 from app.core.scheduler import Scheduler
 
@@ -292,7 +293,9 @@ class MainWindow:
             self.status_var.set("Select a client first.")
             return
         self.scheduler.start_loop(p)
-        self.status_var.set("Started. Checking DB every 60s.")
+        self.status_var.set(
+            f"Started. Checking DB every {SCHEDULER_INTERVAL}s."
+        )
         self._refresh_statuses()
 
     def _on_pause(self) -> None:

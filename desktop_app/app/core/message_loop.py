@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 DELAY_LOW = 4
 DELAY_HIGH = 13
-SCHEDULER_INTERVAL = 60
+SCHEDULER_INTERVAL = 15
 PAUSE_POLL = 5
 
 
@@ -35,7 +35,8 @@ def run_loop_for_profile(
 ) -> None:
     """
     Run indefinitely until stopped. Each iteration: if paused wait; fetch pending;
-    send one by one (reuse driver); on any exception log and continue; sleep SCHEDULER_INTERVAL.
+    send one by one (reuse driver); on any exception log and continue; sleep SCHEDULER_INTERVAL
+    between DB polls (empty queue, after batch, driver errors, loop crash).
     If driver is None and we need to send, create and open WhatsApp.
     """
     def emit(event_type: str, message: str) -> None:
@@ -58,7 +59,10 @@ def run_loop_for_profile(
             client_phno = profile.client_phno
             rows = fetch_pending_for_client(client_phno)
             if not rows:
-                emit("poll", "No pending messages. Sleeping for 60s.")
+                emit(
+                    "poll",
+                    f"No pending messages. Sleeping for {SCHEDULER_INTERVAL}s.",
+                )
                 time.sleep(SCHEDULER_INTERVAL)
                 continue
             emit("poll", f"Fetched {len(rows)} pending message(s).")
@@ -121,7 +125,10 @@ def run_loop_for_profile(
 
                 _delay_between_messages()
 
-            emit("poll", "Batch complete. Sleeping for 60s.")
+            emit(
+                "poll",
+                f"Batch complete. Sleeping for {SCHEDULER_INTERVAL}s.",
+            )
             time.sleep(SCHEDULER_INTERVAL)
         except Exception as e:
             logger.exception("Loop crash for %s", profile.client_phno)

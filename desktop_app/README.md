@@ -32,10 +32,10 @@ No other software (e.g. SQL Server Management Studio, Node.js, etc.) is required
 
 - **Desktop UI**: Select client/profile, Open WhatsApp Web, Start / Pause / Resume / Stop sending.
 - **Multi-profile**: Each client has its own Chrome profile (`desktop_app/chrome_profiles/<phone>`). Run multiple profiles at the same time.
-- **Internal scheduler**: For each running profile, the app checks the DB every **60 seconds** and sends PENDING messages for that client. No manual trigger.
+- **Internal scheduler**: For each running profile, the app checks the DB every **15 seconds** and sends PENDING messages for that client. No manual trigger.
 - **Pause / Resume**: Pause or resume one profile or all. Same Chrome tab is reused.
 - **Error handling**: If a message fails, error is saved in DB (`TMR_STATUS='ERROR'`, `TMR_ERR`). Loop continues with the next message. Group search timeout 20s; if group not found, error is logged and processing continues.
-- **Recovery**: If the loop crashes, it restarts automatically after 60 seconds. Scheduler never stops due to one error.
+- **Recovery**: If the loop crashes, it restarts automatically after 15 seconds. Scheduler never stops due to one error.
 - **Group vs number**: If both group name and number exist, message is sent to the **group**. Group search is limited to 20 seconds.
 - **Direct number fallback**: If the contact is not found in the WhatsApp Web side search (including the “No chats, contacts or messages found” state), the same Chrome tab navigates to `https://web.whatsapp.com/send?phone=<number>` (digits only, international format as stored) so the session is reused and extra tabs are not opened; if the chat still cannot open, the row is marked ERROR.
 
@@ -131,7 +131,7 @@ The built `.exe` includes the Python runtime and all dependencies. Users do **no
 1. **Refresh list**: Load clients from `MST_CLIENT`.
 2. **Select** a client in the table.
 3. **Open Profile**: Opens Chrome with WhatsApp Web for that client (first time you may need to scan QR). Chrome stays open until you close it.
-4. **Start**: Starts the 60-second scheduler for that profile. PENDING messages for this client are sent one by one; then the app waits 60s and checks again.
+4. **Start**: Starts the scheduler for that profile. PENDING messages for this client are sent one by one; then the app waits 15s and checks again.
 5. **Pause / Resume**: Pause or resume sending for the selected profile.
 6. **Stop**: Stops the scheduler for that profile. Chrome is not closed.
 7. **Pause All / Resume All**: Pause or resume all running profiles.
@@ -141,4 +141,4 @@ Chrome is only closed when you close the window yourself. The same tab is reused
 ## Scope vs main project
 
 - **Original repo** (`main.py`, `worker.py`): unchanged. FastAPI, single profile, worker script.
-- **This folder** (`desktop_app`): new desktop app with multi-profile, UI, internal 60s scheduler, pause/resume, and per-profile Chrome windows.
+- **This folder** (`desktop_app`): new desktop app with multi-profile, UI, internal 15s DB poll, pause/resume, and per-profile Chrome windows.

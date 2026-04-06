@@ -52,7 +52,7 @@ class Scheduler:
             return str(e)[:500]
 
     def start_loop(self, profile: ProfileState) -> None:
-        """Start the 60s polling loop for this profile in a background thread."""
+        """Start the DB polling loop for this profile in a background thread."""
         with self._lock:
             key = self._profile_key(profile)
             if key in self._threads and self._threads[key].is_alive():
