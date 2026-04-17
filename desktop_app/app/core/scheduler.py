@@ -51,7 +51,11 @@ class Scheduler:
             self._emit(profile, "profile_open_error", str(e)[:500])
             return str(e)[:500]
 
-    def start_loop(self, profile: ProfileState) -> None:
+    def start_loop(
+        self,
+        profile: ProfileState,
+        allow_search: bool = False,
+    ) -> None:
         """Start the DB polling loop for this profile in a background thread."""
         with self._lock:
             key = self._profile_key(profile)
@@ -63,7 +67,7 @@ class Scheduler:
             profile.set_paused(False)
             t = threading.Thread(
                 target=run_loop_for_profile,
-                args=(profile, self._on_log),
+                args=(profile, self._on_log, allow_search),
                 daemon=True,
             )
             self._threads[key] = t

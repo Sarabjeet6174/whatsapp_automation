@@ -37,6 +37,7 @@ No other software (e.g. SQL Server Management Studio, Node.js, etc.) is required
 - **Error handling**: If a message fails, error is saved in DB (`TMR_STATUS='ERROR'`, `TMR_ERR`). Loop continues with the next message. Group search timeout 20s; if group not found, error is logged and processing continues.
 - **Recovery**: If the loop crashes, it restarts automatically after 15 seconds. Scheduler never stops due to one error.
 - **Group vs number**: If both group name and number exist, message is sent to the **group**. Group search is limited to 20 seconds.
+- **Phone number routing**: By default, direct-number messages open the chat with `https://web.whatsapp.com/send?phone=…` only (no side search). Enable **Allow side search for phone numbers** in the UI to use the WhatsApp search box first (then the send link if needed). Optional `.env`: `ALLOW_SEARCH=true` pre-checks that option on startup.
 - **Direct number fallback**: If the contact is not found in the WhatsApp Web side search (including the “No chats, contacts or messages found” state), the same Chrome tab navigates to `https://web.whatsapp.com/send?phone=<number>` (digits only, international format as stored) so the session is reused and extra tabs are not opened; if the chat still cannot open, the row is marked ERROR.
 
 ## Database tables required
@@ -82,6 +83,14 @@ The app expects these tables in your SQL Server database (see **`scripts/DATABAS
 
 ```bash
 python desktop_app/main_desktop.py
+```
+Default mode is **local** (MS Access-backed local profiles/contact lists/templates/logs).
+
+To run in other modes:
+
+```bash
+python desktop_app/main_desktop.py hybrid   # local + existing SQL mode
+python desktop_app/main_desktop.py sql      # existing SQL mode only
 ```
 
 Or from `desktop_app`:

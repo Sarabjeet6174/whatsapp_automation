@@ -32,12 +32,14 @@ def _delay_between_messages() -> None:
 def run_loop_for_profile(
     profile: ProfileState,
     on_log: Optional[Callable[[str, str, str], None]] = None,
+    allow_search: bool = False,
 ) -> None:
     """
-    Run indefinitely until stopped. Each iteration: if paused wait; fetch pending;
-    send one by one (reuse driver); on any exception log and continue; sleep SCHEDULER_INTERVAL
-    between DB polls (empty queue, after batch, driver errors, loop crash).
-    If driver is None and we need to send, create and open WhatsApp.
+    Run indefinitely until stopped. If paused wait; fetch pending; send one by one (reuse driver).
+    After each batch, re-fetch immediately — if more PENDING rows exist, process them without
+    sleeping; if the queue is empty, sleep SCHEDULER_INTERVAL then poll again.
+    Driver errors / loop crash still sleep SCHEDULER_INTERVAL before retry.
+    allow_search: if True, direct numbers use WhatsApp side search first; if False, /send?phone= only.
     """
     def emit(event_type: str, message: str) -> None:
         log_app_activity(profile.client_phno, event_type, message, source="message_loop")
@@ -65,7 +67,6 @@ def run_loop_for_profile(
                 )
                 time.sleep(SCHEDULER_INTERVAL)
                 continue
-            emit("poll", f"Fetched {len(rows)} pending message(s).")
 
             driver = profile.get_driver()
             if driver is None:
@@ -86,50 +87,66 @@ def run_loop_for_profile(
                     time.sleep(SCHEDULER_INTERVAL)
                     continue
 
-            for row in rows:
-                if profile.is_stopped() or not profile.is_running():
-                    break
-                while profile.is_paused() and profile.is_running() and not profile.is_stopped():
-                    time.sleep(PAUSE_POLL)
-
-                tmr_idno = row["tmr_idno"]
-                to_no = row["to_no"]
-                msg_text = row["msg"] or ""
-                group_name = row["group_name"] or "NA"
-                is_group = group_name != "NA"
-                target = group_name if is_group else str(to_no)
+            while rows and profile.is_running() and not profile.is_stopped():
                 emit(
-                    "message_start",
-                    f"Processing TMR_IDNO={tmr_idno}, target={'group' if is_group else 'number'}:{target}",
+                    "poll",
+                    f"Processing batch: {len(rows)} pending message(s).",
                 )
+                for row in rows:
+                    if profile.is_stopped() or not profile.is_running():
+                        break
+                    while profile.is_paused() and profile.is_running() and not profile.is_stopped():
+                        time.sleep(PAUSE_POLL)
 
-                try:
-                    result = send_message(
-                        driver,
-                        receiver_identifier=target,
-                        message=msg_text,
-                        is_group=is_group,
+                    tmr_idno = row["tmr_idno"]
+                    to_no = row["to_no"]
+                    msg_text = row["msg"] or ""
+                    group_name = row["group_name"] or "NA"
+                    is_group = group_name != "NA"
+                    target = group_name if is_group else str(to_no)
+                    emit(
+                        "message_start",
+                        f"Processing TMR_IDNO={tmr_idno}, target={'group' if is_group else 'number'}:{target}",
                     )
-                    if result == "SUCCESS":
-                        update_status_sent(tmr_idno)
-                        emit("message_sent", f"TMR_IDNO={tmr_idno} marked SENT.")
+
+                    try:
+                        result = send_message(
+                            driver,
+                            receiver_identifier=target,
+                            message=msg_text,
+                            is_group=is_group,
+                            allow_search=allow_search,
+                        )
+                        if result == "SUCCESS":
+                            update_status_sent(tmr_idno)
+                            emit("message_sent", f"TMR_IDNO={tmr_idno} marked SENT.")
+                        else:
+                            update_status_error(tmr_idno, result)
+                            log_app_error(client_phno, "send_message", result)
+                            emit("message_error", f"TMR_IDNO={tmr_idno} marked ERROR: {result}")
+                    except Exception as e:
+                        err = str(e)[:500]
+                        update_status_error(tmr_idno, err)
+                        log_app_error(client_phno, "send_exception", err)
+                        emit("message_exception", f"TMR_IDNO={tmr_idno} exception: {err}")
+
+                    _delay_between_messages()
+                else:
+                    rows = fetch_pending_for_client(client_phno)
+                    if not rows:
+                        emit(
+                            "poll",
+                            f"No pending after batch. Sleeping for {SCHEDULER_INTERVAL}s.",
+                        )
+                        time.sleep(SCHEDULER_INTERVAL)
+                        rows = []
                     else:
-                        update_status_error(tmr_idno, result)
-                        log_app_error(client_phno, "send_message", result)
-                        emit("message_error", f"TMR_IDNO={tmr_idno} marked ERROR: {result}")
-                except Exception as e:
-                    err = str(e)[:500]
-                    update_status_error(tmr_idno, err)
-                    log_app_error(client_phno, "send_exception", err)
-                    emit("message_exception", f"TMR_IDNO={tmr_idno} exception: {err}")
-
-                _delay_between_messages()
-
-            emit(
-                "poll",
-                f"Batch complete. Sleeping for {SCHEDULER_INTERVAL}s.",
-            )
-            time.sleep(SCHEDULER_INTERVAL)
+                        emit(
+                            "poll",
+                            f"Fetched {len(rows)} more pending message(s); continuing immediately.",
+                        )
+                    continue
+                break
         except Exception as e:
             logger.exception("Loop crash for %s", profile.client_phno)
             log_app_error(profile.client_phno, "loop_crash", str(e)[:500])

@@ -41,3 +41,23 @@ def get_profile_dir(client_phno: str) -> str:
     """Directory for one client's Chrome profile. Safe subdir name from phone number."""
     safe = "".join(c for c in str(client_phno) if c.isalnum() or c in "-_")
     return os.path.join(get_chrome_profiles_base(), safe or "default")
+
+
+def get_local_access_db_path() -> str:
+    """MS Access DB path for local mode storage."""
+    return os.path.join(_BASE, "local_store.accdb")
+
+
+def allow_search_from_env() -> bool:
+    """
+    ALLOW_SEARCH in .env / environment: if true, phone sends use WhatsApp side search first.
+    Default false (use web.whatsapp.com/send?phone= only for numbers).
+    """
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(get_env_path())
+    except ImportError:
+        pass
+    v = os.getenv("ALLOW_SEARCH", "").strip().lower()
+    return v in ("1", "true", "yes", "on")

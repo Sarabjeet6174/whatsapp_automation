@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 GROUP_SEARCH_TIMEOUT = 20
 NUMBER_SEARCH_TIMEOUT = 20
 CHAT_LOAD_TIMEOUT = 60
+# WhatsApp changes data-tab on the compose box; trying wrong locators with the main
+# 60s wait made each failed XPath cost a full minute. Use a short try per locator.
+MESSAGE_BOX_LOCATOR_TIMEOUT = 8
 
 # WhatsApp Web empty search state (class names change; match visible copy).
 _NO_SEARCH_RESULTS_TEXT = "No chats, contacts or messages found"
@@ -145,6 +148,23 @@ def create_driver_for_profile(client_phno: str) -> webdriver.Chrome:
     return webdriver.Chrome(service=service, options=chrome_options)
 
 
+_SEARCH_LOCATORS = [
+    (By.XPATH, "//input[@role='textbox' and @type='text' and @data-tab='3']"),
+    (By.XPATH, "//div[@contenteditable='true' and @data-tab='3']"),
+    (By.XPATH, "//div[@contenteditable='true' and @aria-label='Search']"),
+]
+
+
+def _find_side_search_box(driver: webdriver.Chrome, wait: WebDriverWait):
+    """Return WhatsApp left-panel search element, or None."""
+    for locator in _SEARCH_LOCATORS:
+        try:
+            return wait.until(EC.element_to_be_clickable(locator))
+        except (TimeoutException, WebDriverException):
+            continue
+    return None
+
+
 def open_whatsapp_web(driver: webdriver.Chrome) -> str:
     """Open WhatsApp Web in the given driver. Returns 'SUCCESS' or error string."""
     try:
@@ -162,34 +182,24 @@ def send_message(
     receiver_identifier: str,
     message: str,
     is_group: bool,
+    allow_search: bool = False,
 ) -> str:
     """
     Send one message. Does not raise. Returns 'SUCCESS' or error string (for DB).
     Group search limited to GROUP_SEARCH_TIMEOUT seconds; if group not found, returns error.
+    For direct numbers: if allow_search is False (default), open chat only via
+    web.whatsapp.com/send?phone=...; if True, use side search first (with link fallback).
     """
     try:
         wait = WebDriverWait(driver, CHAT_LOAD_TIMEOUT)
         group_wait = WebDriverWait(driver, GROUP_SEARCH_TIMEOUT)
         number_wait = WebDriverWait(driver, NUMBER_SEARCH_TIMEOUT)
 
-        # Keep same tab/session and open chats using WhatsApp side search for both
-        # groups and direct numbers (instead of reloading /send?phone URL each time).
-        search_locators = [
-            (By.XPATH, "//input[@role='textbox' and @type='text' and @data-tab='3']"),
-            (By.XPATH, "//div[@contenteditable='true' and @data-tab='3']"),
-            (By.XPATH, "//div[@contenteditable='true' and @aria-label='Search']"),
-        ]
-        search_box = None
-        for locator in search_locators:
-            try:
-                search_box = wait.until(EC.element_to_be_clickable(locator))
-                break
-            except (TimeoutException, WebDriverException):
-                continue
-        if not search_box:
-            return "Search box not found"
-
         if is_group:
+            search_box = _find_side_search_box(driver, wait)
+            if not search_box:
+                return "Search box not found"
+
             _clear_search_box(search_box)
             search_box.send_keys(receiver_identifier)
             search_box.send_keys(Keys.ENTER)
@@ -207,45 +217,37 @@ def send_message(
             phone_digits = _normalize_phone(receiver_identifier)
             if not phone_digits:
                 return "Invalid phone number"
-            search_terms = [receiver_identifier, phone_digits, phone_digits[-10:]]
-            opened = False
-            for term in search_terms:
-                if not term:
-                    continue
-                _clear_search_box(search_box)
-                search_box.send_keys(term)
-                time.sleep(1.2)
-                if _search_shows_no_results(driver):
-                    break
-                try:
-                    # Prefer explicit result row click by title containing the searched number.
-                    # WhatsApp formats numbers as '+91 63751 96831', so use contains(...) with variants.
-                    chat = number_wait.until(
-                        EC.element_to_be_clickable(
-                            (
-                                By.XPATH,
-                                (
-                                    f"//span[contains(@title,'{term}')]/ancestor::div[@role='row'][1]"
-                                    f"|//span[contains(@title,'{phone_digits[-10:]}')]/ancestor::div[@role='row'][1]"
-                                ),
-                            ),
-                        )
-                    )
-                    chat.click()
-                    time.sleep(1)
-                    number_wait.until(
-                        EC.presence_of_element_located(
-                            (By.XPATH, "//footer//div[@contenteditable='true' and @role='textbox']")
-                        )
-                    )
-                    opened = True
-                    break
-                except (TimeoutException, WebDriverException):
+            if not allow_search:
+                if not _open_chat_via_phone_link_same_tab(driver, phone_digits):
+                    return "Web send link could not open chat"
+            else:
+                search_box = _find_side_search_box(driver, wait)
+                if not search_box:
+                    return "Search box not found"
+                search_terms = [receiver_identifier, phone_digits, phone_digits[-10:]]
+                opened = False
+                for term in search_terms:
+                    if not term:
+                        continue
+                    _clear_search_box(search_box)
+                    search_box.send_keys(term)
+                    time.sleep(1.2)
                     if _search_shows_no_results(driver):
                         break
-                    # If explicit result click failed, try ENTER fallback on first result.
                     try:
-                        search_box.send_keys(Keys.ENTER)
+                        chat = number_wait.until(
+                            EC.element_to_be_clickable(
+                                (
+                                    By.XPATH,
+                                    (
+                                        f"//span[contains(@title,'{term}')]/ancestor::div[@role='row'][1]"
+                                        f"|//span[contains(@title,'{phone_digits[-10:]}')]/ancestor::div[@role='row'][1]"
+                                    ),
+                                ),
+                            )
+                        )
+                        chat.click()
+                        time.sleep(1)
                         number_wait.until(
                             EC.presence_of_element_located(
                                 (By.XPATH, "//footer//div[@contenteditable='true' and @role='textbox']")
@@ -254,26 +256,41 @@ def send_message(
                         opened = True
                         break
                     except (TimeoutException, WebDriverException):
-                        pass
-                    if _search_shows_no_results(driver):
-                        break
-                    continue
-            if not opened:
-                if not _open_chat_via_phone_link_same_tab(driver, phone_digits):
-                    return (
-                        "Phone not found in WhatsApp search; web send link could not open chat"
-                    )
+                        if _search_shows_no_results(driver):
+                            break
+                        try:
+                            search_box.send_keys(Keys.ENTER)
+                            number_wait.until(
+                                EC.presence_of_element_located(
+                                    (By.XPATH, "//footer//div[@contenteditable='true' and @role='textbox']")
+                                )
+                            )
+                            opened = True
+                            break
+                        except (TimeoutException, WebDriverException):
+                            pass
+                        if _search_shows_no_results(driver):
+                            break
+                        continue
+                if not opened:
+                    if not _open_chat_via_phone_link_same_tab(driver, phone_digits):
+                        return (
+                            "Phone not found in WhatsApp search; web send link could not open chat"
+                        )
 
         time.sleep(1)
+        # Footer compose box is the most stable; try it first so we do not sit on a
+        # stale data-tab XPath for up to CHAT_LOAD_TIMEOUT seconds each.
         message_box_locators = [
+            (By.XPATH, "//footer//div[@contenteditable='true' and @role='textbox']"),
             (By.XPATH, "//div[@contenteditable='true' and @data-tab='10']"),
             (By.XPATH, "//div[@contenteditable='true' and @data-tab='6']"),
-            (By.XPATH, "//footer//div[@contenteditable='true' and @role='textbox']"),
         ]
         message_box = None
+        box_wait = WebDriverWait(driver, MESSAGE_BOX_LOCATOR_TIMEOUT)
         for locator in message_box_locators:
             try:
-                message_box = wait.until(EC.element_to_be_clickable(locator))
+                message_box = box_wait.until(EC.element_to_be_clickable(locator))
                 break
             except (TimeoutException, WebDriverException):
                 continue

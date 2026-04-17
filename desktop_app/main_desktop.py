@@ -7,6 +7,7 @@ Desktop app entry point. Run from repo root or desktop_app:
 import os
 import sys
 import logging
+import argparse
 
 # When built as .exe (PyInstaller), path is set by the bootloader; no need to change.
 if not getattr(sys, "frozen", False):
@@ -22,8 +23,21 @@ logging.basicConfig(level=logging.INFO)
 from app.ui.main_window import MainWindow
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="WhatsApp Desktop runner")
+    parser.add_argument(
+        "mode",
+        nargs="?",
+        choices=["sql", "hybrid"],
+        help="Run mode: sql=only SQL mode, hybrid=SQL + local mode. Default is local mode only.",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
-    w = MainWindow()
+    args = _parse_args()
+    run_mode = args.mode or "local"
+    w = MainWindow(run_mode=run_mode)
     w.run()
 
 
