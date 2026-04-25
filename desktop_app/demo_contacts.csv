@@ -1,0 +1,6 @@
+name,phone,email,company,city,plan,language,last_order,preferred_time,balance_due,tags
+Rahul Sharma,6375196831,rahul.sharma@example.com,Acme Traders,Delhi,Gold,Hindi,2026-03-12,10:30 AM,1250,priority;retail
+Anita Verma,6375196831,anita.verma@example.com,Verma Foods,Mumbai,Silver,Marathi,2026-04-02,4:15 PM,0,wholesale
+Suresh Iyer,6375196831,suresh.iyer@example.com,Iyer Logistics,Chennai,Platinum,Tamil,2026-02-27,9:00 AM,5400,logistics;vip
+Priya Nair,6375196831,priya.nair@example.com,Nair Textiles,Kochi,Basic,Malayalam,2026-01-19,1:45 PM,350,new
+Arjun Mehta,6375196831,arjun.mehta@example.com,Mehta Electronics,Pune,Gold,Hindi,2026-04-20,6:00 PM,780,returning

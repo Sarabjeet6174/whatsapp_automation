@@ -42,9 +42,19 @@ Thumbs.db
 #############################
 # Chrome user data used by Selenium
 chrome_profile/
+chrome_profiles/
 
 # Uploaded files saved by FastAPI
 uploads/
+
+# Desktop app generated artifacts
+desktop_app/build/
+desktop_app/dist/
+desktop_app/*.spec.bak
+desktop_app/build_last.log
+desktop_app/local_store.accdb
+desktop_app/local_store.sqlite
+desktop_app/chrome_profiles/
 
 # Cursor / editor metadata
 .cursor/

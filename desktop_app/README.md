@@ -1,13 +1,19 @@
 # WhatsApp Desktop – Multi-Profile Sender
 
-Desktop application that reads pending messages from the Gear Up SQL table and sends them via WhatsApp Web using **multiple Chrome profiles** (one per client). No need to run Python scripts manually. Can be built as a **Windows .exe** that includes Python inside it, so users never have to install Python (or pip) on their PC.
+Desktop application with 3 run modes:
+- **local** (default): local profiles, contact lists, templates, groups, and logs stored in local MS Access DB
+- **sql**: existing SQL scheduler mode only
+- **hybrid**: both local + SQL tabs
+
+Can be built as a **Windows .exe** that includes Python inside it, so users never have to install Python (or pip) on their PC.
 
 ## What you need to install (on the PC where the app runs)
 
 | Requirement | Run with Python | Run with .exe |
 |-------------|------------------|----------------|
 | **Google Chrome** | Yes | Yes |
-| **ODBC Driver 18 for SQL Server** | Yes | Yes |
+| **ODBC Driver 18 for SQL Server** (SQL / Hybrid modes) | Yes | Yes |
+| **Microsoft Access Database Engine x64** (Local / Hybrid modes) | Yes | Yes |
 | **.env file** (DB credentials) | Yes (repo root or next to script) | Optional: bundle it in the .exe when building, or put next to the .exe |
 | **Python 3** | Yes | **No** – the .exe has Python built in |
 | **pip packages** (pyodbc, selenium, etc.) | Yes | **No** – bundled inside the .exe |
@@ -16,6 +22,10 @@ Desktop application that reads pending messages from the Gear Up SQL table and s
 - **ODBC Driver 18**: Required for the app to connect to your SQL Server. You can install it in two ways from the app:
   - **Help → Install ODBC Driver (open download page)** – opens Microsoft’s page in your browser; download and run the installer yourself.
   - **Help → Download and run ODBC installer** – the app downloads the official Microsoft MSI (from a stable URL) and starts the installer. You may see a UAC (admin) prompt; complete the setup in the installer window, then restart the app. This can fail on locked-down or offline PCs; in that case use the “open download page” option instead.
+- **Microsoft Access Database Engine (x64)**: Required for local mode storage.
+  - Download page: [Access Database Engine 2016 Redistributable](https://www.microsoft.com/en-us/download/details.aspx?id=54920)
+  - Direct file (x64): [accessdatabaseengine_X64.exe](https://download.microsoft.com/download/3/5/C/35C84C36-661A-44E6-9324-8786B8DBE231/accessdatabaseengine_X64.exe)
+- **Local DB file**: Local mode uses `local_store.accdb` in the app base folder (next to exe in frozen mode; project base when running as script).
 - **.env**: Create a file named `.env` in the right place (see Setup / Option B) with:
   ```
   SQL_SERVER=your_server
@@ -30,8 +40,11 @@ No other software (e.g. SQL Server Management Studio, Node.js, etc.) is required
 
 ## Features
 
-- **Desktop UI**: Select client/profile, Open WhatsApp Web, Start / Pause / Resume / Stop sending.
+- **Mode-based desktop UI**: Local, SQL, and Hybrid runs.
 - **Multi-profile**: Each client has its own Chrome profile (`desktop_app/chrome_profiles/<phone>`). Run multiple profiles at the same time.
+- **Local mode data**: Store local profiles, contact lists, contacts, templates, groups, and send logs in MS Access.
+- **Template variables**: Replace placeholders like `{name}` with contact fields (`name`, `phone`, `email`, `company`, CSV extra columns) and custom key/value variables.
+- **Local send options**: Send to selected contacts, all contacts, or selected group.
 - **Internal scheduler**: For each running profile, the app checks the DB every **15 seconds** and sends PENDING messages for that client. No manual trigger.
 - **Pause / Resume**: Pause or resume one profile or all. Same Chrome tab is reused.
 - **Error handling**: If a message fails, error is saved in DB (`TMR_STATUS='ERROR'`, `TMR_ERR`). Loop continues with the next message. Group search timeout 20s; if group not found, error is logged and processing continues.
@@ -128,22 +141,38 @@ The built `.exe` includes the Python runtime and all dependencies. Users do **no
    ```
 
 5. **Run** `WhatsAppDesktop.exe`. Chrome profiles are stored in a `chrome_profiles` folder created next to the .exe. No Python or terminal needed.
+   - Default (local): `WhatsAppDesktop.exe`
+   - Hybrid: `WhatsAppDesktop.exe hybrid`
+   - SQL only: `WhatsAppDesktop.exe sql`
 
 **Override:** A `.env` file placed **next to the .exe** always overrides the bundled one (useful for different servers or users).
 
 **On the PC where you run the .exe you still need:**
 - **Google Chrome** installed.
-- **ODBC Driver 18 for SQL Server** (for the DB connection). If missing, install from [Microsoft’s download page](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server).
+- **ODBC Driver 18 for SQL Server** (SQL/Hybrid modes). If missing, install from [Microsoft’s download page](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server).
+- **Microsoft Access Database Engine x64** (Local/Hybrid modes), from [Download Center](https://www.microsoft.com/en-us/download/details.aspx?id=54920).
+- `local_store.accdb` file in the app base folder for local mode.
 
 ## Usage
 
-1. **Refresh list**: Load clients from `MST_CLIENT`.
-2. **Select** a client in the table.
-3. **Open Profile**: Opens Chrome with WhatsApp Web for that client (first time you may need to scan QR). Chrome stays open until you close it.
-4. **Start**: Starts the scheduler for that profile. PENDING messages for this client are sent one by one; then the app waits 15s and checks again.
-5. **Pause / Resume**: Pause or resume sending for the selected profile.
-6. **Stop**: Stops the scheduler for that profile. Chrome is not closed.
-7. **Pause All / Resume All**: Pause or resume all running profiles.
+### Local mode
+
+1. **Add Profile**: Enter profile name + WhatsApp number.
+2. **Open Profile**: Click **Open Profile** to open/create the Chrome profile for that number (QR scan first time).
+3. **Add List** and import contacts using **Import Contacts CSV**.
+4. **Create/Save Template** with placeholders like `{name}`.
+5. (Optional) add custom variables (`key=value`) and groups.
+6. Send via **Send Selected**, **Send All**, or **Send to Group**.
+7. Use **View Logs** / **Delete Logs** for local send history.
+
+### SQL mode
+
+1. **Refresh SQL List**: Load clients from `MST_CLIENT`.
+2. **Select** a client in the SQL table.
+3. **Open Profile**: Opens Chrome with WhatsApp Web for that client.
+4. **Start**: Starts SQL scheduler for that profile (15s poll).
+5. **Pause / Resume / Stop** as needed.
+6. **Pause All / Resume All** controls all running SQL profiles.
 
 Chrome is only closed when you close the window yourself. The same tab is reused for sending.
 
