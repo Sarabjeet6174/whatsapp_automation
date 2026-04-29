@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 from typing import Any
+from datetime import datetime
 
 import pyodbc
 
@@ -172,6 +173,95 @@ def _ensure_local_send_logs_table(conn: pyodbc.Connection) -> None:
     ) from last_err
 
 
+def _ensure_whatsapp_directory_table(conn: pyodbc.Connection) -> None:
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT TOP 1 id FROM whatsapp_directory")
+        return
+    except Exception:
+        pass
+    ddls = [
+        """
+        CREATE TABLE whatsapp_directory (
+            id AUTOINCREMENT PRIMARY KEY,
+            profile_id INTEGER,
+            display_name TEXT(200),
+            synced_at DATETIME
+        )
+        """,
+        """
+        CREATE TABLE whatsapp_directory (
+            id COUNTER PRIMARY KEY,
+            profile_id INTEGER,
+            display_name TEXT(200),
+            synced_at DATETIME
+        )
+        """,
+    ]
+    for ddl in ddls:
+        try:
+            cur.execute(ddl)
+            conn.commit()
+        except Exception:
+            pass
+        try:
+            cur.execute("SELECT TOP 1 id FROM whatsapp_directory")
+            return
+        except Exception:
+            continue
+
+
+def _ensure_local_scheduled_jobs_table(conn: pyodbc.Connection) -> None:
+    cur = conn.cursor()
+    ddls = [
+        """
+        CREATE TABLE local_scheduled_jobs (
+            id AUTOINCREMENT PRIMARY KEY,
+            profile_id INTEGER,
+            run_at DATETIME,
+            payload_json MEMO,
+            job_status TEXT(20),
+            error_text MEMO,
+            created_at DATETIME,
+            processed_at DATETIME
+        )
+        """,
+        """
+        CREATE TABLE local_scheduled_jobs (
+            id COUNTER PRIMARY KEY,
+            profile_id INTEGER,
+            run_at DATETIME,
+            payload_json MEMO,
+            job_status TEXT(20),
+            error_text MEMO,
+            created_at DATETIME,
+            processed_at DATETIME
+        )
+        """,
+    ]
+    try:
+        cur.execute("SELECT TOP 1 id FROM local_scheduled_jobs")
+        return
+    except Exception:
+        pass
+    last_err: Exception | None = None
+    for ddl in ddls:
+        try:
+            cur.execute(ddl)
+            conn.commit()
+        except Exception as e:
+            last_err = e
+        try:
+            cur.execute("SELECT TOP 1 id FROM local_scheduled_jobs")
+            return
+        except Exception as e:
+            last_err = e
+            continue
+    raise RuntimeError(
+        "Could not create required table 'local_scheduled_jobs' in local_store.accdb."
+    ) from last_err
+
+
 def init_local_db() -> None:
     conn = get_conn()
     try:
@@ -252,7 +342,9 @@ def init_local_db() -> None:
             """,
         )
         _ensure_local_send_logs_table(conn)
+        _ensure_local_scheduled_jobs_table(conn)
         _ensure_contact_lists_fields_json(conn)
+        _ensure_whatsapp_directory_table(conn)
         conn.commit()
     finally:
         conn.close()
@@ -291,6 +383,11 @@ def delete_local_profile(profile_id: int) -> None:
         cur.execute("DELETE FROM local_templates WHERE profile_id=?", (profile_id,))
         cur.execute("DELETE FROM local_groups WHERE profile_id=?", (profile_id,))
         cur.execute("DELETE FROM local_send_logs WHERE profile_id=?", (profile_id,))
+        cur.execute("DELETE FROM local_scheduled_jobs WHERE profile_id=?", (profile_id,))
+        try:
+            cur.execute("DELETE FROM whatsapp_directory WHERE profile_id=?", (profile_id,))
+        except Exception:
+            pass
         cur.execute("DELETE FROM local_profiles WHERE id=?", (profile_id,))
         conn.commit()
     finally:
@@ -453,6 +550,40 @@ def delete_contacts(ids: list[int]) -> None:
         for cid in ids:
             cur.execute("DELETE FROM local_contacts WHERE id=?", (cid,))
         conn.commit()
+    finally:
+        conn.close()
+
+
+def replace_whatsapp_directory(profile_id: int, names: list[str]) -> None:
+    conn = get_conn()
+    try:
+        _ensure_whatsapp_directory_table(conn)
+        cur = conn.cursor()
+        cur.execute("DELETE FROM whatsapp_directory WHERE profile_id=?", (profile_id,))
+        for n in names:
+            nn = (n or "").strip()
+            if not nn:
+                continue
+            cur.execute(
+                "INSERT INTO whatsapp_directory (profile_id, display_name, synced_at) VALUES (?, ?, NOW())",
+                (profile_id, nn[:200]),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def fetch_whatsapp_directory(profile_id: int) -> list[dict[str, Any]]:
+    conn = get_conn()
+    try:
+        _ensure_whatsapp_directory_table(conn)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, display_name FROM whatsapp_directory WHERE profile_id=? ORDER BY display_name",
+            (profile_id,),
+        )
+        rows = cur.fetchall()
+        return [{"id": int(r.id), "name": (r.display_name or "").strip()} for r in rows if (r.display_name or "").strip()]
     finally:
         conn.close()
 
@@ -703,6 +834,143 @@ def delete_local_logs(profile_id: int) -> None:
     try:
         cur = conn.cursor()
         cur.execute("DELETE FROM local_send_logs WHERE profile_id=?", (profile_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def create_local_scheduled_job(profile_id: int, run_at: datetime, payload: dict[str, Any]) -> None:
+    conn = get_conn()
+    try:
+        _ensure_local_scheduled_jobs_table(conn)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO local_scheduled_jobs (
+                profile_id, run_at, payload_json, job_status, error_text, created_at, processed_at
+            ) VALUES (?, ?, ?, ?, ?, NOW(), NULL)
+            """,
+            (
+                profile_id,
+                run_at,
+                json.dumps(payload)[:16000],
+                "PENDING",
+                "",
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def fetch_local_scheduled_jobs(profile_id: int, limit: int = 300) -> list[dict[str, Any]]:
+    conn = get_conn()
+    try:
+        _ensure_local_scheduled_jobs_table(conn)
+        cur = conn.cursor()
+        safe_limit = max(1, min(int(limit), 1000))
+        cur.execute(
+            f"""
+            SELECT TOP {safe_limit} id, run_at, payload_json, job_status, error_text, created_at, processed_at
+            FROM local_scheduled_jobs
+            WHERE profile_id=?
+            ORDER BY run_at DESC, id DESC
+            """,
+            (profile_id,),
+        )
+        out: list[dict[str, Any]] = []
+        for r in cur.fetchall():
+            payload: dict[str, Any] = {}
+            try:
+                payload = json.loads(r.payload_json) if r.payload_json else {}
+            except Exception:
+                payload = {}
+            out.append(
+                {
+                    "id": r.id,
+                    "run_at": r.run_at,
+                    "payload": payload,
+                    "status": (r.job_status or "").upper(),
+                    "error_text": r.error_text or "",
+                    "created_at": r.created_at,
+                    "processed_at": r.processed_at,
+                }
+            )
+        return out
+    finally:
+        conn.close()
+
+
+def fetch_due_local_scheduled_jobs(now_dt: datetime, limit: int = 50) -> list[dict[str, Any]]:
+    conn = get_conn()
+    try:
+        _ensure_local_scheduled_jobs_table(conn)
+        cur = conn.cursor()
+        safe_limit = max(1, min(int(limit), 300))
+        cur.execute(
+            f"""
+            SELECT TOP {safe_limit} id, profile_id, run_at, payload_json, job_status
+            FROM local_scheduled_jobs
+            WHERE job_status='PENDING' AND run_at<=?
+            ORDER BY run_at ASC, id ASC
+            """,
+            (now_dt,),
+        )
+        out: list[dict[str, Any]] = []
+        for r in cur.fetchall():
+            payload: dict[str, Any] = {}
+            try:
+                payload = json.loads(r.payload_json) if r.payload_json else {}
+            except Exception:
+                payload = {}
+            out.append(
+                {
+                    "id": r.id,
+                    "profile_id": r.profile_id,
+                    "run_at": r.run_at,
+                    "payload": payload,
+                    "status": (r.job_status or "").upper(),
+                }
+            )
+        return out
+    finally:
+        conn.close()
+
+
+def mark_local_scheduled_job_dispatched(job_id: int) -> None:
+    conn = get_conn()
+    try:
+        _ensure_local_scheduled_jobs_table(conn)
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE local_scheduled_jobs SET job_status=?, processed_at=NOW() WHERE id=? AND job_status='PENDING'",
+            ("DISPATCHED", job_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def mark_local_scheduled_job_error(job_id: int, error_text: str) -> None:
+    conn = get_conn()
+    try:
+        _ensure_local_scheduled_jobs_table(conn)
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE local_scheduled_jobs SET job_status=?, error_text=?, processed_at=NOW() WHERE id=?",
+            ("ERROR", (error_text or "")[:600], job_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_local_scheduled_job(profile_id: int, job_id: int) -> None:
+    conn = get_conn()
+    try:
+        _ensure_local_scheduled_jobs_table(conn)
+        cur = conn.cursor()
+        cur.execute("DELETE FROM local_scheduled_jobs WHERE id=? AND profile_id=?", (job_id, profile_id))
         conn.commit()
     finally:
         conn.close()
