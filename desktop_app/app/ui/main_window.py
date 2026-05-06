@@ -72,11 +72,9 @@ from app.db.local_access import (
 from app.db.sql import fetch_clients
 from app.whatsapp.sender import send_message, sync_whatsapp_contacts_from_new_chat
 from config import allow_search_from_env
+from app.services.constants import WA_SEND_ID_OFFSET as _WA_SEND_ID_OFFSET
 
 logger = logging.getLogger(__name__)
-
-# Send-page tree ids for WhatsApp-directory rows (avoid collision with local_contacts.id).
-_WA_SEND_ID_OFFSET = 8_000_000
 
 _COMPOSE_BG = "#1e2228"
 _COMPOSE_CARD = "#2b3038"

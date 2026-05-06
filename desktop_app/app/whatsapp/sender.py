@@ -5,6 +5,7 @@ Returns "SUCCESS" or error string for DB logging.
 import logging
 import os
 import json
+import re
 import subprocess
 import threading
 import time
@@ -14,13 +15,11 @@ from contextlib import nullcontext
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import (
     WebDriverException,
     TimeoutException,
@@ -1311,8 +1310,21 @@ def create_driver_for_profile(client_phno: str) -> webdriver.Chrome:
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option("useAutomationExtension", False)
-    service = Service(ChromeDriverManager().install())
-    return webdriver.Chrome(service=service, options=chrome_options)
+    # Prefer Selenium Manager (built into Selenium 4.6+) so driver resolution
+    # is browser-version aware across machines and does not depend on local
+    # webdriver-manager cache permissions.
+    try:
+        return webdriver.Chrome(options=chrome_options)
+    except Exception as first_err:
+        logger.warning("Selenium Manager Chrome startup failed, trying webdriver-manager fallback: %s", first_err)
+        try:
+            from selenium.webdriver.chrome.service import Service
+            from webdriver_manager.chrome import ChromeDriverManager
+
+            service = Service(ChromeDriverManager().install())
+            return webdriver.Chrome(service=service, options=chrome_options)
+        except Exception:
+            raise first_err
 
 
 _SEARCH_LOCATORS = [
@@ -1418,6 +1430,13 @@ def _scroll_candidate_for_new_chat_list(driver: webdriver.Chrome):
     try:
         return driver.execute_script(
             """
+            const drawer = document.querySelector('[data-testid="new-chat-drawer"]');
+            if (drawer) {
+              const inDrawer = drawer.querySelectorAll('div[tabindex="0"], [data-testid="contact-list-key"], div[role="list"]');
+              for (const d of inDrawer) {
+                if (d.scrollHeight > d.clientHeight + 80) return d;
+              }
+            }
             const pane = document.getElementById('pane-side');
             if (!pane) return null;
             const cand = pane.querySelectorAll('div[tabindex="0"]');
@@ -1448,38 +1467,62 @@ def sync_whatsapp_contacts_from_new_chat(
         names: set[str] = set()
         prev_count = -1
         stable = 0
-        for _ in range(max_rounds):
+        rounds = max(20, int(max_rounds))
+        for _ in range(rounds):
             try:
-                for el in driver.find_elements(By.XPATH, "//div[@role='row']//span[@title]"):
-                    try:
-                        raw = (el.get_attribute("title") or "").strip()
-                        if _title_is_contact_candidate(raw):
-                            names.add(raw)
-                    except StaleElementReferenceException:
-                        continue
-                    except Exception:
-                        continue
+                snap = driver.execute_script(
+                    """
+                    const drawer = document.querySelector('[data-testid="new-chat-drawer"]');
+                    if (!drawer) return {names: [], moved: false, atEnd: true};
+                    const out = [];
+                    const items = drawer.querySelectorAll('[data-testid^="list-item-"], div[role="listitem"]');
+                    for (const item of items) {
+                      const nameEl =
+                        item.querySelector("[data-testid='cell-frame-title'] span[dir='auto'][title]") ||
+                        item.querySelector("[data-testid='cell-frame-title'] span[title]") ||
+                        item.querySelector("[data-testid='cell-frame-title'] [title]");
+                      if (!nameEl) continue;
+                      const raw = (nameEl.getAttribute('title') || nameEl.textContent || '').trim();
+                      if (raw) out.push(raw);
+                    }
+                    let scroller =
+                      drawer.querySelector('[data-testid="contact-list-key"]') ||
+                      drawer.querySelector('div[tabindex="0"]');
+                    if (!scroller || scroller.scrollHeight <= scroller.clientHeight + 20) {
+                      const cand = drawer.querySelectorAll('div, section');
+                      for (const d of cand) {
+                        if (d.scrollHeight > d.clientHeight + 80) {
+                          scroller = d;
+                          break;
+                        }
+                      }
+                    }
+                    if (!scroller) return {names: out, moved: false, atEnd: true};
+                    const before = scroller.scrollTop || 0;
+                    const step = Math.max(220, Math.floor((scroller.clientHeight || 300) * 0.92));
+                    scroller.scrollTop = before + step;
+                    const after = scroller.scrollTop || 0;
+                    const maxScroll = Math.max(0, (scroller.scrollHeight || 0) - (scroller.clientHeight || 0));
+                    const atEnd = after >= (maxScroll - 6);
+                    return {names: out, moved: (after > before + 1), atEnd: atEnd};
+                    """
+                )
+                for raw in (snap.get("names") or []):
+                    if _title_is_contact_candidate(raw):
+                        names.add(raw)
             except Exception:
-                pass
+                snap = {"moved": False, "atEnd": False}
             n = len(names)
             if n == prev_count:
                 stable += 1
-                if stable >= stable_stop:
+                if stable >= max(2, int(stable_stop)) and bool(snap.get("atEnd")):
                     break
             else:
                 stable = 0
             prev_count = n
-            sc = _scroll_candidate_for_new_chat_list(driver)
-            if sc is None:
+            if bool(snap.get("atEnd")) and not bool(snap.get("moved")):
                 break
-            try:
-                driver.execute_script(
-                    "arguments[0].scrollTop = arguments[0].scrollTop + Math.max(120, arguments[0].clientHeight * 0.85);",
-                    sc,
-                )
-            except Exception:
-                break
-            time.sleep(0.35)
+            time.sleep(0.28)
         _try_click_back_or_escape(driver)
         time.sleep(0.5)
         out = sorted(names, key=lambda s: s.lower())
@@ -1492,6 +1535,627 @@ def sync_whatsapp_contacts_from_new_chat(
     except Exception as e:
         _try_click_back_or_escape(driver)
         return (f"Contact sync failed: {e!r}"[:500], [])
+
+
+def _click_groups_filter_in_chat_list(driver: webdriver.Chrome, timeout_seconds: int = 20) -> bool:
+    """
+    Click WhatsApp's built-in Groups chat filter tab (role='tab').
+    This mirrors the user's proven selector flow.
+    """
+    try:
+        groups_button = WebDriverWait(driver, timeout_seconds).until(
+            EC.element_to_be_clickable(
+                (
+                    By.XPATH,
+                    "//button[@role='tab' and .//span[normalize-space()='Groups']]",
+                )
+            )
+        )
+        try:
+            groups_button.click()
+        except Exception:
+            driver.execute_script("arguments[0].click();", groups_button)
+        WebDriverWait(driver, timeout_seconds).until(
+            EC.presence_of_element_located(
+                (
+                    By.XPATH,
+                    "//button[@role='tab' and @aria-pressed='true' and .//span[normalize-space()='Groups']]",
+                )
+            )
+        )
+        return True
+    except Exception:
+        return False
+
+
+def _scroll_chat_list_for_groups(driver: webdriver.Chrome, max_idle_rounds: int = 3) -> None:
+    previous_height = 0
+    idle_rounds = 0
+    while idle_rounds < max_idle_rounds:
+        try:
+            pane = driver.find_element(By.ID, "pane-side")
+        except Exception:
+            return
+        try:
+            driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight;", pane)
+            time.sleep(1.2)
+            current_height = int(driver.execute_script("return arguments[0].scrollHeight;", pane) or 0)
+        except Exception:
+            return
+        if current_height == previous_height:
+            idle_rounds += 1
+        else:
+            idle_rounds = 0
+            previous_height = current_height
+
+
+def _collect_group_names_visible_snapshot(driver: webdriver.Chrome) -> list[str]:
+    js = """
+    const rows = Array.from(document.querySelectorAll("#pane-side [data-testid^='list-item-']"));
+    const names = [];
+    for (const row of rows) {
+      const titleNode =
+        row.querySelector("[data-testid='cell-frame-title'] span[dir='auto'][title]") ||
+        row.querySelector("span[dir='auto'][title]");
+      if (!titleNode) continue;
+      const t = (titleNode.getAttribute("title") || "").trim();
+      if (t) names.push(t);
+    }
+    return names;
+    """
+    out = driver.execute_script(js) or []
+    groups = {str(name).strip() for name in out if isinstance(name, str) and str(name).strip()}
+    return sorted(groups, key=str.casefold)
+
+
+def sync_whatsapp_groups_from_new_chat(
+    driver: webdriver.Chrome, max_rounds: int = 70, stable_stop: int = 4
+) -> tuple[str, list[str]]:
+    """
+    Collect group names from the main WhatsApp chat list by identifying group rows,
+    then scrolling #pane-side until no new groups are discovered.
+    This deliberately does not click "New chat".
+    Returns ('SUCCESS', names) or (error_string, []).
+    """
+    try:
+        try:
+            WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "pane-side")))
+        except TimeoutException:
+            return ("Could not locate WhatsApp chat list (pane-side).", [])
+
+        group_names: list[str] = []
+        for attempt in range(2):
+            try:
+                if not _click_groups_filter_in_chat_list(driver):
+                    if attempt == 1:
+                        return ("Could not open WhatsApp Groups filter tab.", [])
+                    time.sleep(1.0)
+                    continue
+
+                names_set: set[str] = set()
+                # Capture first viewport before scrolling (top rows are often missed otherwise).
+                names_set.update(_collect_group_names_visible_snapshot(driver))
+                _scroll_chat_list_for_groups(driver)
+                names_set.update(_collect_group_names_visible_snapshot(driver))
+                group_names = sorted(names_set, key=str.casefold)
+                break
+            except StaleElementReferenceException:
+                if attempt == 1:
+                    raise
+                time.sleep(1.0)
+
+        if not group_names:
+            return ("No groups were detected in the Groups-filtered chat list.", [])
+        return ("SUCCESS", group_names)
+    except Exception as e:
+        return (f"Group sync failed: {e!r}"[:500], [])
+
+
+def _group_shell_click_title_in_pane(driver: webdriver.Chrome, group_name: str) -> bool:
+    try:
+        return bool(
+            driver.execute_script(
+                """
+                const want = arguments[0].trim().toLowerCase();
+                const roots = document.querySelectorAll('#pane-side span[title], #pane-side span[dir="auto"]');
+                for (const el of roots) {
+                  const t = (el.getAttribute('title') || el.textContent || '').trim();
+                  if (t.toLowerCase() !== want) continue;
+                  try {
+                    const row = el.closest('div[role="row"]');
+                    if (row) { row.click(); return true; }
+                    el.click(); return true;
+                  } catch (e) {}
+                }
+                return false;
+                """,
+                group_name,
+            )
+        )
+    except Exception:
+        return False
+
+
+def _open_group_chat_from_search(driver: webdriver.Chrome, group_name: str) -> str | None:
+    """Search the sidebar for the group and open its chat. Returns None on success."""
+    name = (group_name or "").strip()
+    if not name:
+        return "Empty group name"
+    try:
+        wait = WebDriverWait(driver, CHAT_LOAD_TIMEOUT)
+        search_box = _find_side_search_box(driver, wait)
+        if not search_box:
+            return "Search box not found"
+        _clear_search_box(search_box)
+        search_box.send_keys(name)
+        search_box.send_keys(Keys.ENTER)
+        time.sleep(1.8)
+        if _search_shows_no_results(driver):
+            return "Group not found in search"
+        deadline = time.time() + float(GROUP_SEARCH_TIMEOUT)
+        opened = False
+        while time.time() < deadline:
+            if _group_shell_click_title_in_pane(driver, name):
+                try:
+                    WebDriverWait(driver, NUMBER_SEARCH_TIMEOUT).until(
+                        EC.presence_of_element_located(
+                            (
+                                By.XPATH,
+                                "//footer//div[@contenteditable='true' and @role='textbox']",
+                            )
+                        )
+                    )
+                    opened = True
+                    break
+                except (TimeoutException, WebDriverException):
+                    pass
+            time.sleep(0.35)
+        if not opened:
+            return "Could not open group chat"
+        return None
+    except Exception as e:
+        return f"Open group failed: {e!r}"[:500]
+
+
+def _click_open_group_info_panel(driver: webdriver.Chrome) -> bool:
+    try:
+        return bool(
+            driver.execute_script(
+                """
+                const main = document.querySelector('#main');
+                if (!main) return false;
+                const header = main.querySelector('[data-testid="conversation-header"]') || main.querySelector('header');
+                if (!header) return false;
+                const title =
+                  header.querySelector('[data-testid="conversation-info-header-chat-title"]') ||
+                  header.querySelector('[data-testid="conversation-info-header"]') ||
+                  header.querySelector('div[role="button"] span[title]') ||
+                  header.querySelector('span[title]');
+                if (title) {
+                  try { title.click(); return true; } catch (e) {}
+                }
+                try { header.click(); return true; } catch (e) {}
+                return false;
+                """
+            )
+        )
+    except Exception:
+        return False
+
+
+def _maybe_click_view_all_members(driver: webdriver.Chrome) -> None:
+    try:
+        driver.execute_script(
+            """
+            const root = document.querySelector('[data-testid="drawer-right"]') || document.body;
+            const cand = root.querySelectorAll('div[role="button"], button, span');
+            for (const el of cand) {
+              const t = (el.textContent || '').trim().toLowerCase();
+              if (!t) continue;
+              if (t.includes('view all') && t.includes('member')) {
+                try { el.click(); return; } catch (e) {}
+              }
+            }
+            """
+        )
+        time.sleep(0.6)
+    except Exception:
+        pass
+
+
+def _participant_scroll_step(driver: webdriver.Chrome) -> bool:
+    try:
+        return bool(
+            driver.execute_script(
+                """
+                const root = document.querySelector('[data-testid="drawer-right"]');
+                if (!root) return false;
+                let best = null;
+                let bestScore = 0;
+                for (const el of root.querySelectorAll('div')) {
+                  const sh = el.scrollHeight || 0;
+                  const ch = el.clientHeight || 0;
+                  if (sh > ch + 80 && sh > bestScore) {
+                    bestScore = sh;
+                    best = el;
+                  }
+                }
+                if (!best) return false;
+                const before = best.scrollTop || 0;
+                best.scrollTop = before + Math.min(380, Math.floor(best.clientHeight * 0.85));
+                return (best.scrollTop || 0) > before + 2;
+                """
+            )
+        )
+    except Exception:
+        return False
+
+
+def _participant_list_titles_snapshot(driver: webdriver.Chrome) -> list[str]:
+    try:
+        raw = driver.execute_script(
+            """
+            const root =
+              document.querySelector('[data-testid="group-info-participants-section"]') ||
+              document.querySelector('[data-testid="chat-info-drawer"]') ||
+              document.querySelector('[data-testid="drawer-right"]') ||
+              document.body;
+            const out = [];
+            const seen = new Set();
+            const nodes = root.querySelectorAll('[data-testid="cell-frame-title"] span[title], [data-testid="cell-frame-title"] span[dir="auto"]');
+            for (const el of nodes) {
+              let t = (el.getAttribute('title') || '').trim();
+              if (!t) t = (el.textContent || '').trim();
+              if (!t) continue;
+              const lower = t.toLowerCase();
+              if (lower === 'you') continue;
+              if (lower.startsWith('add ') || lower.includes('invite')) continue;
+              if (seen.has(t)) continue;
+              seen.add(t);
+              out.push(t);
+            }
+            return out;
+            """
+        )
+        if not isinstance(raw, list):
+            return []
+        return [str(x).strip() for x in raw if str(x).strip()]
+    except Exception:
+        return []
+
+
+def _stable_collect_participant_titles(driver: webdriver.Chrome) -> list[str]:
+    order: list[str] = []
+    seen: set[str] = set()
+    idle = 0
+    while idle < 5:
+        snap = _participant_list_titles_snapshot(driver)
+        moved = False
+        for t in snap:
+            if t not in seen:
+                seen.add(t)
+                order.append(t)
+                moved = True
+        scrolled = _participant_scroll_step(driver)
+        if moved or scrolled:
+            idle = 0
+        else:
+            idle += 1
+        time.sleep(0.22)
+    return order
+
+
+def _click_participant_row_by_title(driver: webdriver.Chrome, title: str) -> bool:
+    try:
+        return bool(
+            driver.execute_script(
+                """
+                const want = arguments[0];
+                const root =
+                  document.querySelector('[data-testid="group-info-participants-section"]') ||
+                  document.querySelector('[data-testid="chat-info-drawer"]') ||
+                  document.querySelector('[data-testid="drawer-right"]') ||
+                  document.body;
+                const cells = root.querySelectorAll('[data-testid="cell-frame-title"]');
+                for (const cell of cells) {
+                  const spans = cell.querySelectorAll('span[title], span[dir="auto"]');
+                  for (const el of spans) {
+                    const t = (el.getAttribute('title') || el.textContent || '').trim();
+                    if (t !== want) continue;
+                    try { el.scrollIntoView({block: 'center', inline: 'nearest'}); } catch (e) {}
+                    const row = el.closest('[data-testid^="list-item-"]')
+                      || el.closest('div[role="listitem"]')
+                      || el.closest('div[role="row"]')
+                      || el.closest('div[tabindex="0"]')
+                      || el.closest('button');
+                    try { el.click(); } catch (e) {}
+                    if (row) {
+                      try {
+                        const btn = row.querySelector('div[role="button"]') || row;
+                        btn.click();
+                        return true;
+                      } catch (e) {}
+                    }
+                    try { el.click(); return true; } catch (e) {}
+                  }
+                }
+                return false;
+                """,
+                title,
+            )
+        )
+    except Exception:
+        return False
+
+
+def _member_contact_info_is_open(driver: webdriver.Chrome) -> bool:
+    try:
+        return bool(
+            driver.execute_script(
+                """
+                const root =
+                  document.querySelector('[data-testid="chat-info-drawer"]') ||
+                  document.querySelector('[data-testid="drawer-right"]') ||
+                  document.body;
+                const h = root.querySelector('[data-testid="contact-info-header"]');
+                if (h) return true;
+                const txt = (root.textContent || '').toLowerCase();
+                return txt.includes('contact info');
+                """
+            )
+        )
+    except Exception:
+        return False
+
+
+def _open_member_contact_info(driver: webdriver.Chrome, title: str) -> bool:
+    if not _click_participant_row_by_title(driver, title):
+        return False
+    end = time.time() + 4.0
+    while time.time() < end:
+        if _member_contact_info_is_open(driver):
+            return True
+        time.sleep(0.2)
+    # second attempt with explicit click on title text only
+    try:
+        clicked = bool(
+            driver.execute_script(
+                """
+                const want = arguments[0];
+                const root =
+                  document.querySelector('[data-testid="group-info-participants-section"]') ||
+                  document.querySelector('[data-testid="chat-info-drawer"]') ||
+                  document.body;
+                const spans = root.querySelectorAll('[data-testid="cell-frame-title"] span[title], [data-testid="cell-frame-title"] span[dir="auto"]');
+                for (const el of spans) {
+                  const t = (el.getAttribute('title') || el.textContent || '').trim();
+                  if (t !== want) continue;
+                  try { el.scrollIntoView({block: 'center'}); } catch (e) {}
+                  try { el.click(); return true; } catch (e) {}
+                }
+                return false;
+                """,
+                title,
+            )
+        )
+        if clicked:
+            end2 = time.time() + 3.0
+            while time.time() < end2:
+                if _member_contact_info_is_open(driver):
+                    return True
+                time.sleep(0.2)
+    except Exception:
+        pass
+    return False
+
+
+def _read_member_detail_from_panel(driver: webdriver.Chrome) -> tuple[str, str]:
+    try:
+        data = driver.execute_script(
+            """
+            const root =
+              document.querySelector('[data-testid="chat-info-drawer"]') ||
+              document.querySelector('[data-testid="drawer-right"]') ||
+              document.body;
+            let name = '';
+            const sub = root.querySelector('[data-testid="contact-info-subtitle selectable-text"]');
+            if (sub) name = (sub.textContent || '').trim();
+            const phones = [];
+            root.querySelectorAll('[data-testid="selectable-text"], span').forEach(el => {
+              const tx = (el.textContent || '').trim();
+              if (!tx || tx.length > 40) return;
+              if (/\\+?\\d[\\d\\s\\-().]{7,}/.test(tx)) {
+                phones.push(tx);
+              }
+            });
+            return {name: name, phones: phones};
+            """
+        )
+        if not isinstance(data, dict):
+            return ("", "")
+        n = str(data.get("name") or "").strip()
+        p = ""
+        raw_phones = data.get("phones")
+        if isinstance(raw_phones, list):
+            for cand in raw_phones:
+                c = str(cand or "").strip()
+                m = re.search(r"\+?\d[\d\s\-().]{7,}", c)
+                if not m:
+                    continue
+                token = m.group(0).strip()
+                if len(_normalize_phone(token)) >= 8:
+                    p = token
+                    break
+        return (n, p)
+    except Exception:
+        return ("", "")
+
+
+def _read_phone_from_member_row(driver: webdriver.Chrome, title: str) -> str:
+    """Fallback: many groups already show phone in participants list row."""
+    try:
+        out = driver.execute_script(
+            """
+            const want = arguments[0];
+            const root =
+              document.querySelector('[data-testid="group-info-participants-section"]') ||
+              document.querySelector('[data-testid="chat-info-drawer"]') ||
+              document.querySelector('[data-testid="drawer-right"]') ||
+              document.body;
+            const cells = root.querySelectorAll('[data-testid="cell-frame-title"]');
+            for (const cell of cells) {
+              const spans = cell.querySelectorAll('span[title], span[dir="auto"]');
+              let hit = false;
+              for (const el of spans) {
+                const t = (el.getAttribute('title') || el.textContent || '').trim();
+                if (t === want) { hit = true; break; }
+              }
+              if (!hit) continue;
+              const row = cell.closest('[data-testid^="list-item-"]') || cell.closest('div[role="listitem"]') || cell.parentElement;
+              if (!row) continue;
+              const txt = (row.textContent || '');
+              const m = txt.match(/\\+?\\d[\\d\\s\\-().]{7,}/);
+              if (m) return (m[0] || '').trim();
+            }
+            return '';
+            """,
+            title,
+        )
+        return str(out or "").strip()
+    except Exception:
+        return ""
+
+
+def _ensure_members_list_visible(driver: webdriver.Chrome) -> bool:
+    """Return from a member's contact detail subpanel to the group members list."""
+    for _ in range(3):
+        try:
+            in_list = bool(
+                driver.execute_script(
+                    """
+                    const drawer =
+                      document.querySelector('[data-testid="chat-info-drawer"]') ||
+                      document.querySelector('[data-testid="drawer-right"]');
+                    if (!drawer) return false;
+                    const inContactInfo = !!drawer.querySelector('[data-testid="contact-info-header"]');
+                    const hasParticipants =
+                      !!drawer.querySelector('[data-testid="group-info-participants-section"] [data-testid^="list-item-"]') ||
+                      !!drawer.querySelector('[aria-label*="members" i] [data-testid^="list-item-"]');
+                    return hasParticipants && !inContactInfo;
+                    """
+                )
+            )
+            if in_list:
+                return True
+        except Exception:
+            pass
+        # Prefer clicking the right-panel back control when present.
+        try:
+            clicked = bool(
+                driver.execute_script(
+                    """
+                    const root =
+                      document.querySelector('[data-testid="chat-info-drawer"]') ||
+                      document.querySelector('[data-testid="drawer-right"]') ||
+                      document.body;
+                    if (!root) return false;
+                    const cands = root.querySelectorAll(
+                      "button[aria-label='Back'], button[data-tab='2'][aria-label='Back'], div[role='button'][aria-label='Back'], span[data-icon='back'], span[data-testid='back-refreshed']"
+                    );
+                    for (const el of cands) {
+                      try {
+                        const btn = el.closest('button,[role="button"]') || el;
+                        btn.click();
+                        return true;
+                      } catch (e) {}
+                    }
+                    return false;
+                    """
+                )
+            )
+            if clicked:
+                time.sleep(0.3)
+                continue
+        except Exception:
+            pass
+        try:
+            driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+            time.sleep(0.3)
+        except Exception:
+            pass
+    return False
+
+
+def sync_group_members_to_whatsapp_directory(
+    driver: webdriver.Chrome, group_display_name: str
+) -> tuple[str, list[dict[str, str]]]:
+    """
+    Open a group, load the participant list, click each member to read name + phone from the
+    detail panel, and return rows suitable for merge_whatsapp_directory_entries().
+    """
+    out: list[dict[str, str]] = []
+    gname = (group_display_name or "").strip()
+    if not gname:
+        return ("Empty group name.", [])
+
+    try:
+        err = _open_group_chat_from_search(driver, gname)
+        if err:
+            return (err, [])
+        time.sleep(0.7)
+        if not _click_open_group_info_panel(driver):
+            return ("Could not open group info (header click). Is this a group chat?", [])
+        try:
+            WebDriverWait(driver, 18).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="drawer-right"]'))
+            )
+        except TimeoutException:
+            return ("Group info panel did not open.", [])
+        time.sleep(0.5)
+        _maybe_click_view_all_members(driver)
+        titles = _stable_collect_participant_titles(driver)
+        if not titles:
+            _try_click_back_or_escape(driver)
+            return ("No participants were listed (try scrolling the member list manually once).", [])
+
+        seen_keys: set[str] = set()
+        for raw_title in titles:
+            _ensure_members_list_visible(driver)
+            if raw_title.strip().lower() == "you":
+                continue
+            if not _open_member_contact_info(driver, raw_title):
+                continue
+            try:
+                time.sleep(0.45)
+                name, phone = _read_member_detail_from_panel(driver)
+                if not name:
+                    name = raw_title
+                if not phone:
+                    phone = _read_phone_from_member_row(driver, raw_title)
+                if name.strip().lower() == "you":
+                    continue
+                key = _normalize_phone(phone) if phone else name.strip().lower()
+                if not key:
+                    continue
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                out.append({"name": name.strip(), "phone": phone.strip()})
+            finally:
+                _ensure_members_list_visible(driver)
+
+        _try_click_back_or_escape(driver)
+        time.sleep(0.3)
+        _try_click_back_or_escape(driver)
+        if not out:
+            return ("Could not read any member details (privacy settings may hide numbers).", [])
+        return ("SUCCESS", out)
+    except Exception as e:
+        try:
+            _try_click_back_or_escape(driver)
+        except Exception:
+            pass
+        return (f"Group member sync failed: {e!r}"[:500], [])
 
 
 def _click_side_search_result_row_for_name(driver: webdriver.Chrome, display_name: str) -> bool:

@@ -173,10 +173,21 @@ def _ensure_local_send_logs_table(conn: pyodbc.Connection) -> None:
     ) from last_err
 
 
+def _ensure_whatsapp_directory_phone_column(conn: pyodbc.Connection) -> None:
+    """Add optional phone column when migrating older databases."""
+    cur = conn.cursor()
+    try:
+        cur.execute("ALTER TABLE whatsapp_directory ADD COLUMN phone TEXT(50)")
+        conn.commit()
+    except Exception:
+        pass
+
+
 def _ensure_whatsapp_directory_table(conn: pyodbc.Connection) -> None:
     cur = conn.cursor()
     try:
         cur.execute("SELECT TOP 1 id FROM whatsapp_directory")
+        _ensure_whatsapp_directory_phone_column(conn)
         return
     except Exception:
         pass
@@ -206,6 +217,7 @@ def _ensure_whatsapp_directory_table(conn: pyodbc.Connection) -> None:
             pass
         try:
             cur.execute("SELECT TOP 1 id FROM whatsapp_directory")
+            _ensure_whatsapp_directory_phone_column(conn)
             return
         except Exception:
             continue
@@ -541,6 +553,31 @@ def create_contact(profile_id: int, contact_list_id: int, payload: dict[str, Any
         conn.close()
 
 
+def update_contact(profile_id: int, contact_id: int, payload: dict[str, Any]) -> None:
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE local_contacts
+            SET contact_name=?, contact_phone=?, email=?, company=?, extra_json=?
+            WHERE id=? AND profile_id=?
+            """,
+            (
+                str(payload.get("name", ""))[:150],
+                str(payload.get("phone", ""))[:50],
+                str(payload.get("email", ""))[:150],
+                str(payload.get("company", ""))[:150],
+                json.dumps(payload.get("extra", {}))[:5000],
+                contact_id,
+                profile_id,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def delete_contacts(ids: list[int]) -> None:
     if not ids:
         return
@@ -558,32 +595,287 @@ def replace_whatsapp_directory(profile_id: int, names: list[str]) -> None:
     conn = get_conn()
     try:
         _ensure_whatsapp_directory_table(conn)
+        _ensure_whatsapp_directory_phone_column(conn)
         cur = conn.cursor()
+        cur.execute(
+            "SELECT display_name, phone FROM whatsapp_directory WHERE profile_id=?",
+            (profile_id,),
+        )
+        prev_phone: dict[str, str] = {}
+        for r in cur.fetchall():
+            dn = (getattr(r, "display_name", None) or "").strip()
+            ph = (getattr(r, "phone", None) or "").strip()
+            if dn:
+                prev_phone[dn.lower()] = ph
         cur.execute("DELETE FROM whatsapp_directory WHERE profile_id=?", (profile_id,))
         for n in names:
             nn = (n or "").strip()
             if not nn:
                 continue
+            kept = prev_phone.get(nn.lower(), "") or ""
             cur.execute(
-                "INSERT INTO whatsapp_directory (profile_id, display_name, synced_at) VALUES (?, ?, NOW())",
-                (profile_id, nn[:200]),
+                "INSERT INTO whatsapp_directory (profile_id, display_name, phone, synced_at) VALUES (?, ?, ?, NOW())",
+                (profile_id, nn[:200], kept[:50] if kept else None),
             )
         conn.commit()
     finally:
         conn.close()
 
 
+def _digits_only(s: str) -> str:
+    return "".join(c for c in (s or "") if c.isdigit())
+
+
+def merge_group_members_into_contact_list(
+    profile_id: int, list_name: str, members: list[dict[str, Any]]
+) -> int:
+    """
+    Ensure a normal contact list exists (by name), then upsert members into local_contacts.
+    Match existing contacts by phone digits first, then exact lowercased name.
+    Returns rows written (inserts + updates).
+    """
+    lname = (list_name or "").strip()[:120]
+    if not lname:
+        raise ValueError("List name is required.")
+    conn = get_conn()
+    written = 0
+    try:
+        _ensure_contact_lists_fields_json(conn)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id FROM local_contact_lists WHERE profile_id=? AND LCASE(list_name)=LCASE(?)",
+            (profile_id, lname),
+        )
+        row = cur.fetchone()
+        if row:
+            list_id = int(row[0])
+        else:
+            cur.execute(
+                """
+                INSERT INTO local_contact_lists (profile_id, list_name, created_at, fields_json)
+                VALUES (?, ?, NOW(), ?)
+                """,
+                (profile_id, lname, json.dumps(list(DEFAULT_LIST_FIELDS))[:8000]),
+            )
+            cur.execute(
+                "SELECT TOP 1 id FROM local_contact_lists WHERE profile_id=? ORDER BY id DESC",
+                (profile_id,),
+            )
+            nr = cur.fetchone()
+            list_id = int(nr[0]) if nr else 0
+            if list_id <= 0:
+                raise RuntimeError("Could not create list for group members.")
+
+        cur.execute(
+            """
+            SELECT id, contact_name, contact_phone, email, company, extra_json
+            FROM local_contacts
+            WHERE profile_id=? AND contact_list_id=?
+            """,
+            (profile_id, list_id),
+        )
+        existing: list[dict[str, Any]] = []
+        for r in cur.fetchall():
+            extra: dict[str, Any] = {}
+            try:
+                extra = json.loads(getattr(r, "extra_json", None) or "{}")
+            except Exception:
+                extra = {}
+            existing.append(
+                {
+                    "id": int(r.id),
+                    "name": str(getattr(r, "contact_name", "") or "").strip(),
+                    "phone": str(getattr(r, "contact_phone", "") or "").strip(),
+                    "email": str(getattr(r, "email", "") or "").strip(),
+                    "company": str(getattr(r, "company", "") or "").strip(),
+                    "extra": extra if isinstance(extra, dict) else {},
+                }
+            )
+
+        def _find_match(name: str, phone: str) -> dict[str, Any] | None:
+            pd = _digits_only(phone)
+            if len(pd) >= 8:
+                for c in existing:
+                    if _digits_only(str(c.get("phone", ""))) == pd:
+                        return c
+            nl = name.lower()
+            if nl:
+                for c in existing:
+                    if str(c.get("name", "")).strip().lower() == nl:
+                        return c
+            return None
+
+        for raw in members:
+            if not isinstance(raw, dict):
+                continue
+            name = str(raw.get("name", "") or "").strip()
+            phone = str(raw.get("phone", "") or "").strip()
+            if not name and not phone:
+                continue
+            if not name:
+                name = phone
+            if not name:
+                continue
+            name = name[:150]
+            phone = phone[:50]
+
+            hit = _find_match(name, phone)
+            if hit:
+                cid = int(hit["id"])
+                old_name = str(hit.get("name", ""))
+                old_phone = str(hit.get("phone", ""))
+                new_name = name if name else old_name
+                new_phone = phone if phone else old_phone
+                if new_name != old_name or new_phone != old_phone:
+                    cur.execute(
+                        """
+                        UPDATE local_contacts
+                        SET contact_name=?, contact_phone=?
+                        WHERE id=? AND profile_id=? AND contact_list_id=?
+                        """,
+                        (new_name[:150], new_phone[:50], cid, profile_id, list_id),
+                    )
+                    hit["name"] = new_name
+                    hit["phone"] = new_phone
+                    written += 1
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO local_contacts (
+                        profile_id, contact_list_id, contact_name, contact_phone, email, company, extra_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (profile_id, list_id, name[:150], phone[:50], "", "", "{}"),
+                )
+                cur.execute(
+                    "SELECT TOP 1 id FROM local_contacts WHERE profile_id=? AND contact_list_id=? ORDER BY id DESC",
+                    (profile_id, list_id),
+                )
+                nr2 = cur.fetchone()
+                nid = int(nr2[0]) if nr2 else 0
+                existing.append({"id": nid, "name": name, "phone": phone, "email": "", "company": "", "extra": {}})
+                written += 1
+        conn.commit()
+    finally:
+        conn.close()
+    return written
+
+
+def merge_whatsapp_directory_entries(profile_id: int, entries: list[dict[str, Any]]) -> int:
+    """
+    Upsert WhatsApp directory rows by matching display name (case-insensitive) or phone digits.
+    Each entry may include 'name' and/or 'phone' strings.
+    Returns number of rows written (inserts + updates).
+    """
+    conn = get_conn()
+    written = 0
+    try:
+        _ensure_whatsapp_directory_table(conn)
+        _ensure_whatsapp_directory_phone_column(conn)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, display_name, phone FROM whatsapp_directory WHERE profile_id=?",
+            (profile_id,),
+        )
+        existing: list[tuple[int, str, str]] = []
+        for r in cur.fetchall():
+            rid = int(r.id)
+            dn = (getattr(r, "display_name", None) or "").strip()
+            ph = (getattr(r, "phone", None) or "").strip()
+            existing.append((rid, dn, ph))
+
+        def find_row(
+            name: str, phone_digits: str
+        ) -> tuple[int, str, str] | None:
+            nl = name.lower()
+            for tup in existing:
+                _, dn, ph = tup
+                if nl and dn.lower() == nl:
+                    return tup
+            if phone_digits and len(phone_digits) >= 8:
+                for tup in existing:
+                    _, _, ph = tup
+                    pd = _digits_only(ph)
+                    if pd and pd == phone_digits:
+                        return tup
+            return None
+
+        for raw in entries:
+            if not isinstance(raw, dict):
+                continue
+            name = str(raw.get("name", "") or "").strip()
+            phone = str(raw.get("phone", "") or "").strip()
+            phone_digits = _digits_only(phone)
+            if not name and not phone:
+                continue
+            if not name:
+                name = phone or "Unknown"
+            name = name[:200]
+            phone = phone[:50] if phone else ""
+
+            hit = find_row(name, phone_digits)
+            if hit:
+                rid, old_dn, old_ph = hit
+                new_phone = phone if phone else old_ph
+                new_name = name if name else old_dn
+                if new_name != old_dn or new_phone != old_ph:
+                    cur.execute(
+                        "UPDATE whatsapp_directory SET display_name=?, phone=?, synced_at=NOW() WHERE id=? AND profile_id=?",
+                        (
+                            new_name[:200],
+                            new_phone[:50] if new_phone else None,
+                            rid,
+                            profile_id,
+                        ),
+                    )
+                    written += 1
+                for i, tup in enumerate(existing):
+                    if tup[0] == rid:
+                        existing[i] = (rid, new_name, new_phone)
+                        break
+            else:
+                cur.execute(
+                    "INSERT INTO whatsapp_directory (profile_id, display_name, phone, synced_at) VALUES (?, ?, ?, NOW())",
+                    (
+                        profile_id,
+                        name[:200],
+                        phone[:50] if phone else None,
+                    ),
+                )
+                cur.execute(
+                    "SELECT TOP 1 id FROM whatsapp_directory WHERE profile_id=? ORDER BY id DESC",
+                    (profile_id,),
+                )
+                lr = cur.fetchone()
+                new_id = int(lr[0]) if lr and lr[0] is not None else 0
+                if new_id:
+                    existing.append((new_id, name, phone))
+                written += 1
+        conn.commit()
+    finally:
+        conn.close()
+    return written
+
+
 def fetch_whatsapp_directory(profile_id: int) -> list[dict[str, Any]]:
     conn = get_conn()
     try:
         _ensure_whatsapp_directory_table(conn)
+        _ensure_whatsapp_directory_phone_column(conn)
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, display_name FROM whatsapp_directory WHERE profile_id=? ORDER BY display_name",
+            "SELECT id, display_name, phone FROM whatsapp_directory WHERE profile_id=? ORDER BY display_name",
             (profile_id,),
         )
         rows = cur.fetchall()
-        return [{"id": int(r.id), "name": (r.display_name or "").strip()} for r in rows if (r.display_name or "").strip()]
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            nm = (getattr(r, "display_name", None) or "").strip()
+            if not nm:
+                continue
+            ph = (getattr(r, "phone", None) or "").strip()
+            out.append({"id": int(r.id), "name": nm, "phone": ph})
+        return out
     finally:
         conn.close()
 
@@ -677,6 +969,29 @@ def create_group(profile_id: int, group_name: str) -> None:
             "INSERT INTO local_groups (profile_id, group_name, created_at) VALUES (?, ?, NOW())",
             (profile_id, group_name[:200]),
         )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def replace_groups(profile_id: int, group_names: list[str]) -> None:
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM local_groups WHERE profile_id=?", (profile_id,))
+        seen: set[str] = set()
+        for raw in group_names:
+            name = (raw or "").strip()
+            if not name:
+                continue
+            key = name.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            cur.execute(
+                "INSERT INTO local_groups (profile_id, group_name, created_at) VALUES (?, ?, NOW())",
+                (profile_id, name[:200]),
+            )
         conn.commit()
     finally:
         conn.close()
@@ -971,6 +1286,26 @@ def delete_local_scheduled_job(profile_id: int, job_id: int) -> None:
         _ensure_local_scheduled_jobs_table(conn)
         cur = conn.cursor()
         cur.execute("DELETE FROM local_scheduled_jobs WHERE id=? AND profile_id=?", (job_id, profile_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def update_local_scheduled_job(
+    profile_id: int, job_id: int, run_at: datetime, payload: dict[str, Any]
+) -> None:
+    conn = get_conn()
+    try:
+        _ensure_local_scheduled_jobs_table(conn)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE local_scheduled_jobs
+            SET run_at=?, payload_json=?, error_text=''
+            WHERE id=? AND profile_id=?
+            """,
+            (run_at, json.dumps(payload)[:16000], job_id, profile_id),
+        )
         conn.commit()
     finally:
         conn.close()

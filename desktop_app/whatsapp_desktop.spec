@@ -1,5 +1,8 @@
 # PyInstaller spec for WhatsApp Desktop .exe
-# Run from desktop_app folder:  pyinstaller whatsapp_desktop.spec
+# Run from desktop_app folder: build_exe.bat   OR   pyinstaller whatsapp_desktop.spec
+# Build with the SAME interpreter that has PySide6 (repo ..\venv\Scripts\python.exe).
+# If you use a different python (e.g. 3.8 on PATH), you will see "Hidden import PySide6 not found"
+# and the Qt UI will be missing or crash at runtime.
 # If .env exists in desktop_app or repo root, it is bundled into the .exe so users don't need a separate .env file.
 
 import os
@@ -32,6 +35,21 @@ a = Analysis(
         'app.core.scheduler',
         'app.ui',
         'app.ui.main_window',
+        'app.services',
+        'app.services.constants',
+        'app.services.local_workflow_controller',
+        'app.ui.qt',
+        'app.ui.qt.styles',
+        'app.ui.qt.modern_main_window',
+        'app.ui.qt.pages',
+        'app.ui.qt.pages.send_messages_page',
+        'app.ui.qt.widgets',
+        'app.ui.qt.widgets.chat_preview',
+        'PySide6',
+        'PySide6.QtCore',
+        'PySide6.QtGui',
+        'PySide6.QtWidgets',
+        'shiboken6',
         'config',
         'selenium',
         'selenium.webdriver',
