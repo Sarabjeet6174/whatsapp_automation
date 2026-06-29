@@ -10,7 +10,7 @@ import os
 from datetime import datetime
 from typing import Any
 
-from PySide6.QtCore import QDate, QDateTime, QTime, Qt, Signal
+from PySide6.QtCore import QDate, QDateTime, QPoint, QTime, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QCloseEvent, QDragEnterEvent, QDropEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -33,6 +33,8 @@ from PySide6.QtWidgets import (
     QTimeEdit,
     QVBoxLayout,
     QWidget,
+    QWidgetAction,
+    QMenu,
 )
 
 from app.db.local_access import (
@@ -79,6 +81,8 @@ class SendMessagesPage(QWidget):
         self._group_view_cache: list[str] = []
         self._pending_attachments: list[str] = []
         self._contact_lists: list[dict[str, Any]] = []
+        self._list_filter_all = True
+        self._selected_list_ids: set[int] = set()
         self._selected_recipient_keys: set[tuple[str, int]] = set()
         self._selected_group_names_set: set[str] = set()
         self._pending_external_selection: dict[str, Any] | None = None
@@ -134,11 +138,11 @@ class SendMessagesPage(QWidget):
         toolbar.addWidget(self._tab_lists)
         toolbar.addWidget(self._tab_groups)
 
-        self._list_combo = QComboBox()
-        self._list_combo.setFixedHeight(_TOOLBAR_H)
-        self._list_combo.setMinimumWidth(130)
-        self._list_combo.currentIndexChanged.connect(self._refresh_recipients)
-        toolbar.addWidget(self._list_combo)
+        self._list_picker_btn = QPushButton("All lists")
+        self._list_picker_btn.setFixedHeight(_TOOLBAR_H)
+        self._list_picker_btn.setMinimumWidth(130)
+        self._list_picker_btn.clicked.connect(self._show_list_picker_menu)
+        toolbar.addWidget(self._list_picker_btn)
 
         self._recipient_search = QLineEdit()
         self._recipient_search.setPlaceholderText("Filter name or phone…")
@@ -236,7 +240,7 @@ class SendMessagesPage(QWidget):
         self._recipient_stack.addWidget(self._groups_table_wrap)
         s1.addWidget(self._recipient_stack, 1)
 
-        self._list_filter_wrap = self._list_combo
+        self._list_filter_wrap = self._list_picker_btn
         self._group_search_row = self._group_search
 
         step1.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -476,6 +480,7 @@ class SendMessagesPage(QWidget):
     def _update_schedule_action_buttons(self) -> None:
         schedule_mode = self._radio_schedule.isChecked()
         self._btn_send_now.setVisible(not schedule_mode)
+        self._btn_schedule.setVisible(schedule_mode)
         if schedule_mode:
             self._btn_schedule.setText("Schedule")
             self._btn_schedule.setObjectName("Primary")
@@ -503,7 +508,7 @@ class SendMessagesPage(QWidget):
     def _on_source_tab_changed(self, lists_checked: bool) -> None:
         self._active_source_tab = "lists" if lists_checked else "groups"
         show_lists = lists_checked
-        self._list_combo.setVisible(show_lists)
+        self._list_picker_btn.setVisible(show_lists)
         self._recipient_search.setVisible(show_lists)
         self._select_all_recipients.setVisible(show_lists)
         self._group_search.setVisible(not show_lists)
@@ -794,6 +799,8 @@ class SendMessagesPage(QWidget):
         p = self._current_profile()
         if not p:
             return
+        self._list_filter_all = True
+        self._selected_list_ids.clear()
         self._load_templates()
         self._load_contact_lists()
         self._load_groups_combo()
@@ -885,8 +892,12 @@ class SendMessagesPage(QWidget):
             return
         st = Qt.CheckState(state)
         if st == Qt.CheckState.PartiallyChecked:
-            return
-        want = st == Qt.CheckState.Checked
+            want = True
+            self._select_all_groups.blockSignals(True)
+            self._select_all_groups.setCheckState(Qt.CheckState.Checked)
+            self._select_all_groups.blockSignals(False)
+        else:
+            want = st == Qt.CheckState.Checked
         page_items = self._group_view_cache
         self._updating_tables = True
         for r, gname in enumerate(page_items):
@@ -926,18 +937,103 @@ class SendMessagesPage(QWidget):
 
     def _load_contact_lists(self) -> None:
         self._contact_lists = []
-        self._list_combo.blockSignals(True)
-        self._list_combo.clear()
-        self._list_combo.addItem("All lists", None)
         p = self._current_profile()
         if p:
             try:
                 self._contact_lists = fetch_contact_lists(int(p["id"]))
-                for lst in self._contact_lists:
-                    self._list_combo.addItem(str(lst.get("name", "")), int(lst.get("id", 0)))
             except Exception:
                 self._contact_lists = []
-        self._list_combo.blockSignals(False)
+        self._update_list_picker_label()
+
+    def _update_list_picker_label(self) -> None:
+        if self._list_filter_all:
+            self._list_picker_btn.setText("All lists")
+            return
+        if not self._selected_list_ids:
+            self._list_picker_btn.setText("No lists")
+            return
+        if len(self._selected_list_ids) == 1:
+            lid = next(iter(self._selected_list_ids))
+            name = next(
+                (str(lst.get("name", "")) for lst in self._contact_lists if int(lst.get("id", 0)) == lid),
+                "1 list",
+            )
+            self._list_picker_btn.setText(name or "1 list")
+        else:
+            self._list_picker_btn.setText(f"{len(self._selected_list_ids)} lists")
+
+    def _show_list_picker_menu(self) -> None:
+        menu = QMenu(self)
+        panel = QWidget()
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(6)
+
+        all_cb = QCheckBox("All lists")
+        all_cb.setChecked(self._list_filter_all)
+        layout.addWidget(all_cb)
+
+        list_cbs: dict[int, QCheckBox] = {}
+        for lst in self._contact_lists:
+            lid = int(lst.get("id", 0))
+            if lid <= 0:
+                continue
+            cb = QCheckBox(str(lst.get("name", "")))
+            cb.setChecked(not self._list_filter_all and lid in self._selected_list_ids)
+            list_cbs[lid] = cb
+            layout.addWidget(cb)
+
+        def _apply_filter() -> None:
+            self._update_list_picker_label()
+            self._refresh_recipients()
+
+        def _uncheck_all_individual() -> None:
+            for cb in list_cbs.values():
+                cb.blockSignals(True)
+                cb.setChecked(False)
+                cb.blockSignals(False)
+
+        def _on_all_changed(_state: int) -> None:
+            if all_cb.isChecked():
+                self._list_filter_all = True
+                self._selected_list_ids.clear()
+                _uncheck_all_individual()
+            else:
+                self._list_filter_all = False
+                self._selected_list_ids.clear()
+                _uncheck_all_individual()
+            _apply_filter()
+
+        def _on_list_changed() -> None:
+            selected = {lid for lid, cb in list_cbs.items() if cb.isChecked()}
+            all_cb.blockSignals(True)
+            if selected:
+                all_cb.setChecked(False)
+                self._list_filter_all = False
+                self._selected_list_ids = selected
+            else:
+                all_cb.setChecked(False)
+                self._list_filter_all = False
+                self._selected_list_ids.clear()
+            all_cb.blockSignals(False)
+            _apply_filter()
+
+        all_cb.stateChanged.connect(_on_all_changed)
+        for cb in list_cbs.values():
+            cb.stateChanged.connect(lambda _s: _on_list_changed())
+
+        action = QWidgetAction(menu)
+        action.setDefaultWidget(panel)
+        menu.addAction(action)
+        menu.exec(self._list_picker_btn.mapToGlobal(QPoint(0, self._list_picker_btn.height())))
+
+    def _lists_for_recipient_load(self, pid: int) -> list[dict[str, Any]]:
+        lists = self._contact_lists if self._contact_lists else fetch_contact_lists(pid)
+        if self._list_filter_all:
+            return lists
+        if not self._selected_list_ids:
+            return []
+        return [x for x in lists if int(x.get("id", 0)) in self._selected_list_ids]
 
     def _refresh_recipients(self) -> None:
         self._table.setRowCount(0)
@@ -951,10 +1047,7 @@ class SendMessagesPage(QWidget):
         pid = int(p["id"])
         rows: list[dict[str, Any]] = []
         try:
-            selected_list_id = self._list_combo.currentData()
-            lists = self._contact_lists if self._contact_lists else fetch_contact_lists(pid)
-            if selected_list_id is not None:
-                lists = [x for x in lists if int(x.get("id", 0)) == int(selected_list_id)]
+            lists = self._lists_for_recipient_load(pid)
             for lst in lists:
                 for c in fetch_contacts(pid, int(lst["id"])):
                     ex = c.get("extra") or {}
@@ -1067,8 +1160,12 @@ class SendMessagesPage(QWidget):
             return
         st = Qt.CheckState(state)
         if st == Qt.CheckState.PartiallyChecked:
-            return
-        want = st == Qt.CheckState.Checked
+            want = True
+            self._select_all_recipients.blockSignals(True)
+            self._select_all_recipients.setCheckState(Qt.CheckState.Checked)
+            self._select_all_recipients.blockSignals(False)
+        else:
+            want = st == Qt.CheckState.Checked
         page_items = self._view_cache
         self._updating_tables = True
         for r, c in enumerate(page_items):

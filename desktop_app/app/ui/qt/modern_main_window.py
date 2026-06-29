@@ -7,8 +7,17 @@ from __future__ import annotations
 import logging
 import sys
 
-from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QFont, QKeySequence, QShortcut
+from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtGui import (
+    QAction,
+    QColor,
+    QFont,
+    QIcon,
+    QKeySequence,
+    QPainter,
+    QPixmap,
+    QShortcut,
+)
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -22,7 +31,9 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMainWindow,
     QMessageBox,
+    QMenu,
     QPushButton,
+    QSystemTrayIcon,
     QVBoxLayout,
     QStackedWidget,
     QStatusBar,
@@ -146,15 +157,18 @@ class CommandPaletteDialog(QDialog):
 
 
 class ModernMainWindow(QMainWindow):
+    _schedule_due_ui = Signal()
+
     def __init__(self) -> None:
         super().__init__()
+        self._tray: QSystemTrayIcon | None = None
         self.setWindowTitle("WhatsApp Desktop")
         self.setMinimumSize(1180, 700)
         self.resize(1360, 820)
 
         self._workflow = LocalWorkflowController(
             on_scheduler_log=self._on_sched_log,
-            on_schedule_due=None,
+            on_schedule_due=self._on_schedule_due,
         )
 
         try:
@@ -309,6 +323,68 @@ class ModernMainWindow(QMainWindow):
         self._palette_shortcut.activated.connect(self._open_command_palette)
 
         self._workflow.ensure_schedule_worker()
+        self._schedule_due_ui.connect(self._handle_schedule_due_ui)
+        self._setup_system_tray()
+
+    def _tray_icon(self) -> QIcon:
+        pm = QPixmap(32, 32)
+        pm.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pm)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(QColor("#22C55E"))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(2, 2, 28, 28)
+        painter.end()
+        return QIcon(pm)
+
+    def _setup_system_tray(self) -> None:
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            self._tray = None
+            return
+        self._tray = QSystemTrayIcon(self._tray_icon(), self)
+        self._tray.setToolTip("WhatsApp Desktop — scheduled sends run in the background")
+        menu = QMenu(self)
+        show_action = QAction("Show window", self)
+        show_action.triggered.connect(self._show_from_tray)
+        menu.addAction(show_action)
+        menu.addSeparator()
+        quit_action = QAction("Quit", self)
+        quit_action.triggered.connect(self._quit_application)
+        menu.addAction(quit_action)
+        self._tray.setContextMenu(menu)
+        self._tray.activated.connect(self._on_tray_activated)
+        self._tray.show()
+
+    def _show_from_tray(self) -> None:
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def _quit_application(self) -> None:
+        if self._tray is not None:
+            self._tray.hide()
+        QApplication.quit()
+
+    def _on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self._show_from_tray()
+
+    def _on_schedule_due(self) -> None:
+        self._schedule_due_ui.emit()
+
+    @Slot()
+    def _handle_schedule_due_ui(self) -> None:
+        try:
+            self._schedule_page.refresh()
+        except Exception:
+            pass
+        if self._tray is not None and self._tray.isVisible():
+            self._tray.showMessage(
+                "WhatsApp Desktop",
+                "A scheduled send is starting — Chrome will open if needed.",
+                QSystemTrayIcon.MessageIcon.Information,
+                5000,
+            )
 
     def _on_sched_log(self, ph: str, event: str, msg: str) -> None:
         logger.info("[sched][%s] %s %s", ph, event, msg)
@@ -410,6 +486,16 @@ class ModernMainWindow(QMainWindow):
                     it.setText(f"  {icon}  {label}")
 
     def closeEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        if self._tray is not None and QSystemTrayIcon.isSystemTrayAvailable():
+            event.ignore()
+            self.hide()
+            self._tray.showMessage(
+                "WhatsApp Desktop",
+                "Still running in the tray. Scheduled messages will send on time.",
+                QSystemTrayIcon.MessageIcon.Information,
+                4500,
+            )
+            return
         event.accept()
 
 
@@ -418,6 +504,7 @@ def run_qt_app() -> None:
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
     app = QApplication.instance() or QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
     apply_app_theme(app)
     win = ModernMainWindow()
     win.show()

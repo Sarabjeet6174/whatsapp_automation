@@ -72,6 +72,7 @@ class SchedulePage(QWidget):
         self._table.horizontalHeader().setStretchLastSection(True)
         self._table.verticalHeader().setVisible(False)
         self._table.setAlternatingRowColors(True)
+        self._table.setSortingEnabled(False)
         self._table.setMinimumHeight(400)
         self._table.doubleClicked.connect(lambda _idx: self._edit_job())
         v.addWidget(self._table)
@@ -101,6 +102,7 @@ class SchedulePage(QWidget):
             self._table.setRowCount(1)
             self._table.setItem(0, 0, QTableWidgetItem(str(e)))
             return
+        jobs.sort(key=self._job_run_at_sort_key, reverse=True)
         self._table.setRowCount(len(jobs))
         for r, j in enumerate(jobs):
             jid = int(j.get("id", 0))
@@ -136,6 +138,18 @@ class SchedulePage(QWidget):
         row = sel[0].row()
         it = self._table.item(row, 0)
         return int(it.data(Qt.ItemDataRole.UserRole)) if it else 0
+
+    @staticmethod
+    def _job_run_at_sort_key(job: dict) -> tuple[float, int]:
+        ra = job.get("run_at")
+        if isinstance(ra, datetime):
+            ts = ra.timestamp()
+        else:
+            try:
+                ts = datetime.fromisoformat(str(ra).replace("Z", "+00:00")).timestamp()
+            except Exception:
+                ts = 0.0
+        return (ts, int(job.get("id", 0)))
 
     @staticmethod
     def _message_preview(items: list[dict]) -> str:
