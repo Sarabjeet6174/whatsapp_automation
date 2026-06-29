@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Send Messages — WhatsApp Auto</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">W</div>
+        <span class="brand-text">WhatsApp Auto</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Workflow</div>
+        <a href="index.html" class="nav-item"><span class="nav-icon">📊</span><span>Dashboard</span></a>
+        <a href="profiles.html" class="nav-item"><span class="nav-icon">👤</span><span>Profiles</span></a>
+        <a href="contacts.html" class="nav-item"><span class="nav-icon">📋</span><span>Contacts & Lists</span></a>
+        <a href="wa_contacts.html" class="nav-item"><span class="nav-icon">💬</span><span>WhatsApp Contacts</span></a>
+        <a href="groups.html" class="nav-item"><span class="nav-icon">👥</span><span>WhatsApp Groups</span></a>
+        <a href="templates.html" class="nav-item"><span class="nav-icon">📝</span><span>Templates</span></a>
+        <a href="send_messages.html" class="nav-item active"><span class="nav-icon">📤</span><span>Send Messages</span></a>
+        <a href="schedule.html" class="nav-item"><span class="nav-icon">⏰</span><span>Schedule</span></a>
+        <a href="logs.html" class="nav-item"><span class="nav-icon">📜</span><span>Logs</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="profile-mini">
+          <div class="profile-avatar">JD</div>
+          <div class="profile-info">
+            <div class="profile-name">John Doe</div>
+            <div class="profile-status">+1 555-0199</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">Send Messages</h1>
+        <span class="page-subtitle">Campaign wizard</span>
+      </div>
+      <div class="topbar-right">
+        <div class="search-trigger" title="Command Palette (Ctrl+K)">
+          <span>🔍</span>
+          <span>Search anything…</span>
+          <span class="kbd-shortcut">Ctrl K</span>
+        </div>
+        <div class="toolbar-divider"></div>
+        <button class="btn-icon" title="Notifications">🔔</button>
+        <button class="btn-icon" title="Settings">⚙️</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="content-scroll">
+        <div class="send-wizard-shell">
+          <div class="send-wizard-layout">
+
+            <div class="send-wizard-main">
+              <!-- Progress stepper -->
+              <nav class="wizard-stepper" aria-label="Campaign steps">
+                <div class="wizard-stepper-track">
+                  <div class="wizard-stepper-fill" id="stepperFill"></div>
+                </div>
+                <ol class="wizard-stepper-list">
+                  <li class="wizard-step is-active" data-step="1">
+                    <span class="wizard-step-circle"><span class="wizard-step-num">1</span><span class="wizard-step-check">✓</span></span>
+                    <span class="wizard-step-label">Recipients</span>
+                  </li>
+                  <li class="wizard-step" data-step="2">
+                    <span class="wizard-step-circle"><span class="wizard-step-num">2</span><span class="wizard-step-check">✓</span></span>
+                    <span class="wizard-step-label">Message</span>
+                  </li>
+                  <li class="wizard-step" data-step="3">
+                    <span class="wizard-step-circle"><span class="wizard-step-num">3</span><span class="wizard-step-check">✓</span></span>
+                    <span class="wizard-step-label">Preview</span>
+                  </li>
+                  <li class="wizard-step" data-step="4">
+                    <span class="wizard-step-circle"><span class="wizard-step-num">4</span><span class="wizard-step-check">✓</span></span>
+                    <span class="wizard-step-label">Schedule</span>
+                  </li>
+                  <li class="wizard-step" data-step="5">
+                    <span class="wizard-step-circle"><span class="wizard-step-num">5</span><span class="wizard-step-check">✓</span></span>
+                    <span class="wizard-step-label">Review</span>
+                  </li>
+                </ol>
+              </nav>
+
+              <div class="wizard-steps-viewport">
+                <!-- Step 1 — Recipients -->
+                <section class="wizard-step-panel is-visible" id="step-1" data-step="1">
+                  <div class="wizard-step-head">
+                    <h2 class="wizard-step-title">Select Recipients</h2>
+                    <p class="wizard-step-desc">Choose contacts, WhatsApp directory, groups, or saved lists.</p>
+                  </div>
+
+                  <input type="search" class="form-input wizard-search" id="recipientSearch" placeholder="Search by name, phone, or tag…">
+
+                  <div class="tabs wizard-tabs" id="recipientTabs">
+                    <button type="button" class="tab active" data-tab="contacts">Contacts</button>
+                    <button type="button" class="tab" data-tab="wa">WhatsApp Contacts</button>
+                    <button type="button" class="tab" data-tab="groups">Groups</button>
+                    <button type="button" class="tab" data-tab="lists">Saved Lists</button>
+                  </div>
+
+                  <div class="wizard-step1-body">
+                    <div class="card wizard-table-card">
+                      <div class="table-wrap wizard-table-wrap">
+                        <table class="data-table wizard-recipient-table" id="recipientTable">
+                          <thead>
+                            <tr>
+                              <th style="width:40px"><div class="checkbox wizard-select-all" id="selectAllRecipients" title="Select all"></div></th>
+                              <th style="width:44px"></th>
+                              <th>Name</th>
+                              <th>Phone</th>
+                              <th>Tags</th>
+                            </tr>
+                          </thead>
+                          <tbody id="recipientTableBody"></tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <aside class="card wizard-selection-summary">
+                      <div class="card-header">
+                        <div class="card-title">Selected</div>
+                      </div>
+                      <div class="card-body">
+                        <div class="selection-stat">
+                          <div class="selection-stat-value" id="step1RecipientCount">0</div>
+                          <div class="selection-stat-label">recipients</div>
+                        </div>
+                        <div class="selection-stat">
+                          <div class="selection-stat-value" id="step1GroupCount">0</div>
+                          <div class="selection-stat-label">groups</div>
+                        </div>
+                        <div class="wizard-divider"></div>
+                        <div class="selection-meta">
+                          <span class="text-tertiary">Estimated delivery</span>
+                          <strong id="step1Eta">—</strong>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                </section>
+
+                <!-- Step 2 — Compose -->
+                <section class="wizard-step-panel" id="step-2" data-step="2">
+                  <div class="wizard-step-head">
+                    <h2 class="wizard-step-title">Compose Message</h2>
+                    <p class="wizard-step-desc">Write your campaign message, insert variables, and attach media.</p>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label" for="campaignName">Campaign name</label>
+                    <input type="text" class="form-input" id="campaignName" value="Welcome Campaign">
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label" for="templateSelect">Template</label>
+                    <select class="form-select" id="templateSelect">
+                      <option value="Welcome Message">Welcome Message</option>
+                      <option value="Follow-up">Follow-up</option>
+                      <option value="Meeting Reminder">Meeting Reminder</option>
+                      <option value="Promo Blast">Promo Blast</option>
+                    </select>
+                  </div>
+
+                  <div class="composer-toolbar mb-3">
+                    <button type="button" class="btn btn-secondary btn-sm ai-tool" data-action="improve">Improve</button>
+                    <button type="button" class="btn btn-secondary btn-sm ai-tool" data-action="shorten">Shorten</button>
+                    <button type="button" class="btn btn-secondary btn-sm ai-tool" data-action="translate">Translate</button>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label" for="messageInput">Message</label>
+                    <textarea class="form-textarea smart-editor composer-textarea" id="messageInput" rows="10" placeholder="Write your message…">Hi {{name}}, welcome to {{company}}! 🎉
+
+We're excited to have you onboard.</textarea>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Variables</label>
+                    <div class="smart-chips">
+                      <button type="button" class="var-chip">{{name}}</button>
+                      <button type="button" class="var-chip">{{company}}</button>
+                      <button type="button" class="var-chip">{{phone}}</button>
+                      <button type="button" class="var-chip">{{date}}</button>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Attachments</label>
+                    <div class="dropzone" id="attachDropzone">Drop files here or click to attach</div>
+                    <div class="attachment-list" id="attachmentList">
+                      <div class="attachment-chip" data-file="welcome_packet.pdf"><span>📄</span><span>welcome_packet.pdf</span><span class="remove" role="button" tabindex="0">✕</span></div>
+                      <div class="attachment-chip" data-file="logo.png"><span>🖼️</span><span>logo.png</span><span class="remove" role="button" tabindex="0">✕</span></div>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- Step 3 — Preview -->
+                <section class="wizard-step-panel" id="step-3" data-step="3">
+                  <div class="wizard-step-head wizard-step-head-center">
+                    <h2 class="wizard-step-title">Preview</h2>
+                    <p class="wizard-step-desc">See how your message looks for each recipient.</p>
+                  </div>
+
+                  <div class="preview-recipient-nav">
+                    <button type="button" class="btn btn-ghost btn-sm" id="previewPrevRecipient" aria-label="Previous recipient">‹ Previous</button>
+                    <div class="preview-recipient-name" id="previewRecipientName">Alice Johnson</div>
+                    <button type="button" class="btn btn-ghost btn-sm" id="previewNextRecipient" aria-label="Next recipient">Next ›</button>
+                  </div>
+
+                  <div class="wizard-phone-stage">
+                    <div class="phone-preview wizard-phone-preview">
+                      <div class="phone-header" id="previewPhoneHeader">Alice Johnson</div>
+                      <div class="phone-chat">
+                        <div class="wa-bubble" id="previewBubble">Hi Alice, welcome to Acme Corp! 🎉</div>
+                        <div class="preview-attachment-hint" id="previewAttachmentHint">📎 2 attachments</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <ul class="preview-checklist">
+                    <li class="preview-check is-ok" id="checkVariables">✅ Variables replaced</li>
+                    <li class="preview-check is-ok" id="checkMedia">✅ Media attached</li>
+                    <li class="preview-check is-ok" id="checkLooksGood">✅ Looks good</li>
+                  </ul>
+                </section>
+
+                <!-- Step 4 — Schedule -->
+                <section class="wizard-step-panel" id="step-4" data-step="4">
+                  <div class="wizard-step-head">
+                    <h2 class="wizard-step-title">Schedule</h2>
+                    <p class="wizard-step-desc">Choose when to send and pacing between messages.</p>
+                  </div>
+
+                  <div class="schedule-options">
+                    <label class="wizard-radio">
+                      <input type="radio" name="sendMode" value="now" checked>
+                      <span class="wizard-radio-ui"></span>
+                      <span class="wizard-radio-text">
+                        <strong>Send now</strong>
+                        <span class="text-tertiary">Queue immediately after confirmation</span>
+                      </span>
+                    </label>
+                    <label class="wizard-radio">
+                      <input type="radio" name="sendMode" value="schedule">
+                      <span class="wizard-radio-ui"></span>
+                      <span class="wizard-radio-text">
+                        <strong>Schedule</strong>
+                        <span class="text-tertiary">Pick date, time, and timezone</span>
+                      </span>
+                    </label>
+                  </div>
+
+                  <div class="schedule-fields" id="scheduleFields" hidden>
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label class="form-label" for="scheduleDate">Date</label>
+                        <input type="date" class="form-input" id="scheduleDate">
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label" for="scheduleTime">Time</label>
+                        <input type="time" class="form-input" id="scheduleTime" value="09:00">
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label class="form-label" for="scheduleTz">Timezone</label>
+                      <select class="form-select" id="scheduleTz">
+                        <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+                        <option value="America/New_York">America/New_York (EDT)</option>
+                        <option value="UTC">UTC</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="wizard-divider"></div>
+
+                  <div class="form-group">
+                    <label class="form-label" for="messageDelay">Delay between messages</label>
+                    <select class="form-select" id="messageDelay">
+                      <option value="5">5 seconds</option>
+                      <option value="10" selected>10 seconds</option>
+                      <option value="20">20 seconds</option>
+                      <option value="30">30 seconds</option>
+                    </select>
+                  </div>
+
+                  <label class="wizard-checkbox">
+                    <input type="checkbox" id="randomDelay">
+                    <span class="checkbox" id="randomDelayUi"></span>
+                    <span>Random delay (±30% variation)</span>
+                  </label>
+                </section>
+
+                <!-- Step 5 — Review -->
+                <section class="wizard-step-panel" id="step-5" data-step="5">
+                  <div class="wizard-step-head">
+                    <h2 class="wizard-step-title">Review &amp; Send</h2>
+                    <p class="wizard-step-desc">Confirm everything before launching your campaign.</p>
+                  </div>
+
+                  <div class="review-grid">
+                    <div class="stat-card review-card">
+                      <div class="stat-label">Recipients</div>
+                      <div class="stat-value" id="reviewRecipients">0</div>
+                    </div>
+                    <div class="stat-card review-card">
+                      <div class="stat-label">Template</div>
+                      <div class="stat-value review-card-text" id="reviewTemplate">Welcome Message</div>
+                    </div>
+                    <div class="stat-card review-card">
+                      <div class="stat-label">Attachments</div>
+                      <div class="stat-value review-card-text" id="reviewAttachments">2 Files</div>
+                    </div>
+                    <div class="stat-card review-card">
+                      <div class="stat-label">Schedule</div>
+                      <div class="stat-value review-card-text" id="reviewSchedule">Send now</div>
+                    </div>
+                    <div class="stat-card review-card">
+                      <div class="stat-label">Estimated duration</div>
+                      <div class="stat-value review-card-text" id="reviewDuration">—</div>
+                    </div>
+                    <div class="stat-card review-card">
+                      <div class="stat-label">Estimated completion</div>
+                      <div class="stat-value review-card-text" id="reviewCompletion">—</div>
+                    </div>
+                  </div>
+
+                  <div class="review-actions">
+                    <button type="button" class="btn btn-secondary btn-lg" id="reviewBackBtn">Back</button>
+                    <button type="button" class="btn btn-primary btn-lg wizard-send-btn" id="sendCampaignBtn">Send Campaign</button>
+                  </div>
+                </section>
+              </div>
+
+              <!-- Bottom navigation (steps 1–4) -->
+              <footer class="wizard-nav" id="wizardNav">
+                <button type="button" class="btn btn-secondary wizard-nav-btn" id="wizardBackBtn" disabled>‹ Back</button>
+                <button type="button" class="btn btn-primary wizard-nav-btn" id="wizardContinueBtn" disabled>Continue ›</button>
+              </footer>
+            </div>
+
+            <!-- Persistent sticky summary -->
+            <aside class="card campaign-summary-sticky" id="campaignSummary">
+              <div class="card-header">
+                <div class="card-title">Campaign Summary</div>
+              </div>
+              <div class="card-body campaign-summary-body">
+                <div class="summary-row">
+                  <span class="text-tertiary">Recipients</span>
+                  <strong id="summaryRecipients">0</strong>
+                </div>
+                <div class="summary-row">
+                  <span class="text-tertiary">Template</span>
+                  <strong id="summaryTemplate">Welcome</strong>
+                </div>
+                <div class="summary-row">
+                  <span class="text-tertiary">Media</span>
+                  <strong id="summaryMedia">2 Files</strong>
+                </div>
+                <div class="summary-row">
+                  <span class="text-tertiary">Schedule</span>
+                  <strong id="summarySchedule">Send now</strong>
+                </div>
+                <div class="wizard-divider"></div>
+                <div class="summary-draft status status-success" id="summaryDraft">
+                  <span>Draft Saved ✓</span>
+                </div>
+              </div>
+            </aside>
+
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="paletteOverlay"></div>
+  <div class="command-palette" id="commandPalette">
+    <input type="text" class="cp-input" id="cpInput" placeholder="Type a command or search…">
+    <div class="cp-results">
+      <div class="cp-item selected">
+        <div class="cp-item-icon">📤</div>
+        <div><div style="font-weight:600;color:var(--text-primary)">Send Messages</div><div style="font-size:11px;color:var(--text-tertiary)">Open the send workflow</div></div>
+        <span class="cp-item-meta">G S</span>
+      </div>
+    </div>
+  </div>
+  <div class="toast-container" id="toastContainer"></div>
+  <script src="app.js"></script>
+  <script src="send_wizard.js"></script>
+</body>
+</html>

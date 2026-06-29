@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — WhatsApp Auto</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell ">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">W</div>
+        <span class="brand-text">WhatsApp Auto</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Workflow</div>
+      <a href="index.html" class="nav-item active"><span class="nav-icon">📊</span><span>Dashboard</span></a>
+      <a href="profiles.html" class="nav-item "><span class="nav-icon">👤</span><span>Profiles</span></a>
+      <a href="contacts.html" class="nav-item "><span class="nav-icon">📋</span><span>Contacts & Lists</span></a>
+      <a href="wa_contacts.html" class="nav-item "><span class="nav-icon">💬</span><span>WhatsApp Contacts</span></a>
+      <a href="groups.html" class="nav-item "><span class="nav-icon">👥</span><span>WhatsApp Groups</span></a>
+      <a href="templates.html" class="nav-item "><span class="nav-icon">📝</span><span>Templates</span></a>
+      <a href="send_messages.html" class="nav-item "><span class="nav-icon">📤</span><span>Send Messages</span></a>
+      <a href="schedule.html" class="nav-item "><span class="nav-icon">⏰</span><span>Schedule</span></a>
+      <a href="logs.html" class="nav-item "><span class="nav-icon">📜</span><span>Logs</span></a>
+
+      </nav>
+      <div class="sidebar-footer">
+        <div class="profile-mini">
+          <div class="profile-avatar">JD</div>
+          <div class="profile-info">
+            <div class="profile-name">John Doe</div>
+            <div class="profile-status">+1 555-0199</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">Dashboard</h1>
+        <span class="page-subtitle">Overview & quick actions</span>
+      </div>
+      <div class="topbar-right">
+        <div class="search-trigger" title="Command Palette (Ctrl+K)">
+          <span>🔍</span>
+          <span>Search anything…</span>
+          <span class="kbd-shortcut">Ctrl K</span>
+        </div>
+        <div class="toolbar-divider"></div>
+        
+        <button class="btn-icon" title="Notifications">🔔</button>
+        <button class="btn-icon" title="Settings">⚙️</button>
+      </div>
+    </header>
+    <main class="main">
+      <div class="content-scroll">
+        <div class="content-padded">
+
+          <!-- STATS ROW -->
+          <div class="stats-row">
+            <div class="stat-card">
+              <div class="stat-value" style="color:var(--accent-primary)">3</div>
+              <div class="stat-label">Active Profiles</div>
+              <div class="stat-delta up">+1 this week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" style="color:var(--accent-info)">1,247</div>
+              <div class="stat-label">Total Contacts</div>
+              <div class="stat-delta up">+89 imported</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" style="color:var(--accent-warn)">12</div>
+              <div class="stat-label">Pending Jobs</div>
+              <div class="stat-delta">Next in 2h 14m</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" style="color:var(--text-secondary)">8,432</div>
+              <div class="stat-label">Messages Sent</div>
+              <div class="stat-delta up">+342 today</div>
+            </div>
+          </div>
+
+          <!-- QUICK LAUNCH CARDS -->
+          <h2 style="font-size:var(--text-sm); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-tertiary); margin-bottom:var(--space-3);">Quick Launch</h2>
+          <div class="launch-grid">
+            <a href="send_messages.html" class="launch-card">
+              <div class="launch-icon green">📤</div>
+              <div class="launch-title">Send Messages</div>
+              <div class="launch-desc">Select recipients and send or schedule messages</div>
+            </a>
+            <a href="profiles.html" class="launch-card">
+              <div class="launch-icon blue">👤</div>
+              <div class="launch-title">Profiles</div>
+              <div class="launch-desc">Manage WhatsApp profile identities</div>
+            </a>
+            <a href="contacts.html" class="launch-card">
+              <div class="launch-icon amber">📋</div>
+              <div class="launch-title">Contacts & Lists</div>
+              <div class="launch-desc">Organize contacts and import from CSV</div>
+            </a>
+            <a href="wa_contacts.html" class="launch-card">
+              <div class="launch-icon teal">💬</div>
+              <div class="launch-title">WhatsApp Contacts</div>
+              <div class="launch-desc">Sync directory from WhatsApp Web</div>
+            </a>
+            <a href="groups.html" class="launch-card">
+              <div class="launch-icon purple">👥</div>
+              <div class="launch-title">WhatsApp Groups</div>
+              <div class="launch-desc">Sync groups and extract members</div>
+            </a>
+            <a href="templates.html" class="launch-card">
+              <div class="launch-icon rose">📝</div>
+              <div class="launch-title">Templates</div>
+              <div class="launch-desc">Create reusable message templates</div>
+            </a>
+            <a href="schedule.html" class="launch-card">
+              <div class="launch-icon" style="background:rgba(59,130,246,0.1)">⏰</div>
+              <div class="launch-title">Schedule</div>
+              <div class="launch-desc">View and manage scheduled jobs</div>
+            </a>
+            <a href="logs.html" class="launch-card">
+              <div class="launch-icon" style="background:rgba(148,163,184,0.1)">📜</div>
+              <div class="launch-title">Logs</div>
+              <div class="launch-desc">Inspect send history and errors</div>
+            </a>
+          </div>
+
+          <!-- RECENT ACTIVITY -->
+          <div style="margin-top:var(--space-6);">
+            <h2 style="font-size:var(--text-sm); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-tertiary); margin-bottom:var(--space-3);">Recent Activity</h2>
+            <div class="card">
+              <div class="card-body-sm">
+                <div class="log-entry">
+                  <span class="log-time">Today 09:42</span>
+                  <span class="log-target">+1 555-0101</span>
+                  <span class="log-msg">Welcome message with attachment</span>
+                  <span class="log-status"><span class="status status-success">Sent</span></span>
+                </div>
+                <div class="log-entry">
+                  <span class="log-time">Today 09:41</span>
+                  <span class="log-target">+1 555-0102</span>
+                  <span class="log-msg">Welcome message with attachment</span>
+                  <span class="log-status"><span class="status status-success">Sent</span></span>
+                </div>
+                <div class="log-entry">
+                  <span class="log-time">Today 09:38</span>
+                  <span class="log-target">+1 555-0103</span>
+                  <span class="log-msg">Monthly newsletter — batch #4</span>
+                  <span class="log-status"><span class="status status-error">Failed</span></span>
+                </div>
+                <div class="log-entry">
+                  <span class="log-time">Today 09:35</span>
+                  <span class="log-target">Sales Team</span>
+                  <span class="log-msg">Group broadcast: Q3 targets</span>
+                  <span class="log-status"><span class="status status-success">Sent</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+  <!-- COMMAND PALETTE OVERLAY -->
+    <div class="modal-overlay" id="paletteOverlay"></div>
+    <div class="command-palette" id="commandPalette">
+      <input type="text" class="cp-input" id="cpInput" placeholder="Type a command or search…">
+      <div class="cp-results">
+        <div class="cp-item selected">
+          <div class="cp-item-icon">📤</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">Send Messages</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Open the send workflow</div>
+          </div>
+          <span class="cp-item-meta">G S</span>
+        </div>
+        <div class="cp-item">
+          <div class="cp-item-icon">👤</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">New Profile</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Create a new WhatsApp profile</div>
+          </div>
+          <span class="cp-item-meta">G P</span>
+        </div>
+        <div class="cp-item">
+          <div class="cp-item-icon">📋</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">Import Contacts</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Import from CSV file</div>
+          </div>
+          <span class="cp-item-meta">G I</span>
+        </div>
+        <div class="cp-item">
+          <div class="cp-item-icon">⏰</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">View Schedule</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Check pending jobs</div>
+          </div>
+          <span class="cp-item-meta">G D</span>
+        </div>
+      </div>
+    </div>
+  <div class="toast-container" id="toastContainer"></div>
+  <script src="app.js"></script>
+</body>
+</html>

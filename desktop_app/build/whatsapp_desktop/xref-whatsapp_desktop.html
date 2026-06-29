@@ -18,7 +18,9 @@
   <a target="code" href="///C:/Users/91637/OneDrive/Desktop/web_automation/desktop_app/main_desktop.py" type="text/plain"><tt>main_desktop.py</tt></a>
 <span class="moduletype">Script</span>  <div class="import">
 imports:
-    <a href="#PySide6">PySide6</a>
+    <a href="#PIL">PIL</a>
+ &#8226;   <a href="#PIL.Image">PIL.Image</a>
+ &#8226;   <a href="#PySide6">PySide6</a>
  &#8226;   <a href="#PySide6.QtCore">PySide6.QtCore</a>
  &#8226;   <a href="#PySide6.QtGui">PySide6.QtGui</a>
  &#8226;   <a href="#PySide6.QtWidgets">PySide6.QtWidgets</a>
@@ -184,16 +186,22 @@ imports:
  &#8226;   <a href="#linecache">linecache</a>
  &#8226;   <a href="#locale">locale</a>
  &#8226;   <a href="#logging">logging</a>
+ &#8226;   <a href="#mouseinfo">mouseinfo</a>
  &#8226;   <a href="#ntpath">ntpath</a>
  &#8226;   <a href="#operator">operator</a>
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#posixpath">posixpath</a>
+ &#8226;   <a href="#pyautogui">pyautogui</a>
+ &#8226;   <a href="#pygetwindow">pygetwindow</a>
  &#8226;   <a href="#pyi_rth__tkinter.py">pyi_rth__tkinter.py</a>
  &#8226;   <a href="#pyi_rth_inspect.py">pyi_rth_inspect.py</a>
  &#8226;   <a href="#pyi_rth_multiprocessing.py">pyi_rth_multiprocessing.py</a>
  &#8226;   <a href="#pyi_rth_pkgutil.py">pyi_rth_pkgutil.py</a>
  &#8226;   <a href="#pyi_rth_pyside6.py">pyi_rth_pyside6.py</a>
  &#8226;   <a href="#pyodbc">pyodbc</a>
+ &#8226;   <a href="#pyperclip">pyperclip</a>
+ &#8226;   <a href="#pyscreeze">pyscreeze</a>
+ &#8226;   <a href="#pytweening">pytweening</a>
  &#8226;   <a href="#re">re</a>
  &#8226;   <a href="#re._casefix">re._casefix</a>
  &#8226;   <a href="#re._compiler">re._compiler</a>
@@ -218,6 +226,7 @@ imports:
  &#8226;   <a href="#weakref">weakref</a>
  &#8226;   <a href="#webdriver_manager">webdriver_manager</a>
  &#8226;   <a href="#webdriver_manager.chrome">webdriver_manager.chrome</a>
+ &#8226;   <a href="#websocket">websocket</a>
 
   </div>
 
@@ -419,7 +428,7 @@ imported by:
   <a target="code" href="" type="text/plain"><tt>'org.python'</tt></a>
 <span class="moduletype">MissingModule</span>  <div class="import">
 imported by:
-    <a href="#copy">copy</a>
+    <a href="#pickle">pickle</a>
  &#8226;   <a href="#xml.sax">xml.sax</a>
 
   </div>
@@ -679,6 +688,7 @@ imported by:
  &#8226;   <a href="#PIL._webp">PIL._webp</a>
  &#8226;   <a href="#PIL.features">PIL.features</a>
  &#8226;   <a href="#app.ui.main_window">app.ui.main_window</a>
+ &#8226;   <a href="#main_desktop.py">main_desktop.py</a>
  &#8226;   <a href="#mouseinfo">mouseinfo</a>
  &#8226;   <a href="#pyscreeze">pyscreeze</a>
 
@@ -1368,6 +1378,7 @@ imported by:
  &#8226;   <a href="#PIL.XpmImagePlugin">PIL.XpmImagePlugin</a>
  &#8226;   <a href="#PIL.features">PIL.features</a>
  &#8226;   <a href="#app.ui.main_window">app.ui.main_window</a>
+ &#8226;   <a href="#main_desktop.py">main_desktop.py</a>
  &#8226;   <a href="#mouseinfo">mouseinfo</a>
  &#8226;   <a href="#pyscreeze">pyscreeze</a>
 
@@ -3106,6 +3117,7 @@ imported by:
  &#8226;   <a href="#app.ui.qt.pages.templates_page">app.ui.qt.pages.templates_page</a>
  &#8226;   <a href="#app.ui.qt.pages.wa_contacts_page">app.ui.qt.pages.wa_contacts_page</a>
  &#8226;   <a href="#app.ui.qt.widgets.chat_preview">app.ui.qt.widgets.chat_preview</a>
+ &#8226;   <a href="#app.ui.qt.widgets.send_flow_widgets">app.ui.qt.widgets.send_flow_widgets</a>
  &#8226;   <a href="#app.ui.qt.widgets.send_page_widgets">app.ui.qt.widgets.send_page_widgets</a>
  &#8226;   <a href="#main_desktop.py">main_desktop.py</a>
 
@@ -3135,7 +3147,9 @@ imported by:
  &#8226;   <a href="#app.ui.qt.modern_main_window">app.ui.qt.modern_main_window</a>
  &#8226;   <a href="#app.ui.qt.pages.send_messages_page">app.ui.qt.pages.send_messages_page</a>
  &#8226;   <a href="#app.ui.qt.pages.templates_page">app.ui.qt.pages.templates_page</a>
+ &#8226;   <a href="#app.ui.qt.styles">app.ui.qt.styles</a>
  &#8226;   <a href="#app.ui.qt.widgets.chat_preview">app.ui.qt.widgets.chat_preview</a>
+ &#8226;   <a href="#app.ui.qt.widgets.send_flow_widgets">app.ui.qt.widgets.send_flow_widgets</a>
  &#8226;   <a href="#app.ui.qt.widgets.send_page_widgets">app.ui.qt.widgets.send_page_widgets</a>
  &#8226;   <a href="#main_desktop.py">main_desktop.py</a>
 
@@ -3196,8 +3210,10 @@ imported by:
  &#8226;   <a href="#app.ui.qt.pages.send_messages_page">app.ui.qt.pages.send_messages_page</a>
  &#8226;   <a href="#app.ui.qt.pages.templates_page">app.ui.qt.pages.templates_page</a>
  &#8226;   <a href="#app.ui.qt.pages.wa_contacts_page">app.ui.qt.pages.wa_contacts_page</a>
+ &#8226;   <a href="#app.ui.qt.styles">app.ui.qt.styles</a>
  &#8226;   <a href="#app.ui.qt.widgets.chat_preview">app.ui.qt.widgets.chat_preview</a>
  &#8226;   <a href="#app.ui.qt.widgets.profile_combo_utils">app.ui.qt.widgets.profile_combo_utils</a>
+ &#8226;   <a href="#app.ui.qt.widgets.send_flow_widgets">app.ui.qt.widgets.send_flow_widgets</a>
  &#8226;   <a href="#app.ui.qt.widgets.send_page_widgets">app.ui.qt.widgets.send_page_widgets</a>
  &#8226;   <a href="#main_desktop.py">main_desktop.py</a>
 
@@ -3380,8 +3396,10 @@ imported by:
  &#8226;   <a href="#app.ui.qt.pages.send_messages_page">app.ui.qt.pages.send_messages_page</a>
  &#8226;   <a href="#app.ui.qt.pages.templates_page">app.ui.qt.pages.templates_page</a>
  &#8226;   <a href="#app.ui.qt.pages.wa_contacts_page">app.ui.qt.pages.wa_contacts_page</a>
+ &#8226;   <a href="#app.ui.qt.styles">app.ui.qt.styles</a>
  &#8226;   <a href="#app.ui.qt.widgets.chat_preview">app.ui.qt.widgets.chat_preview</a>
  &#8226;   <a href="#app.ui.qt.widgets.profile_combo_utils">app.ui.qt.widgets.profile_combo_utils</a>
+ &#8226;   <a href="#app.ui.qt.widgets.send_flow_widgets">app.ui.qt.widgets.send_flow_widgets</a>
  &#8226;   <a href="#app.ui.qt.widgets.send_page_widgets">app.ui.qt.widgets.send_page_widgets</a>
  &#8226;   <a href="#babel.core">babel.core</a>
  &#8226;   <a href="#babel.dates">babel.dates</a>
@@ -4778,6 +4796,7 @@ imports:
  &#8226;   <a href="#app.db.local_access">app.db.local_access</a>
  &#8226;   <a href="#app.services">app.services</a>
  &#8226;   <a href="#app.whatsapp.sender">app.whatsapp.sender</a>
+ &#8226;   <a href="#dataclasses">dataclasses</a>
  &#8226;   <a href="#datetime">datetime</a>
  &#8226;   <a href="#logging">logging</a>
  &#8226;   <a href="#queue">queue</a>
@@ -5088,8 +5107,11 @@ imports:
  &#8226;   <a href="#app.services.local_workflow_controller">app.services.local_workflow_controller</a>
  &#8226;   <a href="#app.ui.qt.pages">app.ui.qt.pages</a>
  &#8226;   <a href="#app.ui.qt.widgets.chat_preview">app.ui.qt.widgets.chat_preview</a>
+ &#8226;   <a href="#app.ui.qt.widgets.send_flow_widgets">app.ui.qt.widgets.send_flow_widgets</a>
  &#8226;   <a href="#app.ui.qt.widgets.send_page_widgets">app.ui.qt.widgets.send_page_widgets</a>
+ &#8226;   <a href="#app.whatsapp.sender">app.whatsapp.sender</a>
  &#8226;   <a href="#datetime">datetime</a>
+ &#8226;   <a href="#math">math</a>
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#typing">typing</a>
 
@@ -5157,7 +5179,10 @@ imported by:
   <a target="code" href="///C:/Users/91637/OneDrive/Desktop/web_automation/desktop_app/app/ui/qt/styles.py" type="text/plain"><tt>app.ui.qt.styles</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
-    <a href="#app.ui.qt">app.ui.qt</a>
+    <a href="#PySide6.QtGui">PySide6.QtGui</a>
+ &#8226;   <a href="#PySide6.QtWidgets">PySide6.QtWidgets</a>
+ &#8226;   <a href="#__future__">__future__</a>
+ &#8226;   <a href="#app.ui.qt">app.ui.qt</a>
 
   </div>
   <div class="import">
@@ -5182,6 +5207,7 @@ imports:
 imported by:
     <a href="#app.ui.qt.widgets.chat_preview">app.ui.qt.widgets.chat_preview</a>
  &#8226;   <a href="#app.ui.qt.widgets.profile_combo_utils">app.ui.qt.widgets.profile_combo_utils</a>
+ &#8226;   <a href="#app.ui.qt.widgets.send_flow_widgets">app.ui.qt.widgets.send_flow_widgets</a>
  &#8226;   <a href="#app.ui.qt.widgets.send_page_widgets">app.ui.qt.widgets.send_page_widgets</a>
  &#8226;   <a href="#main_desktop.py">main_desktop.py</a>
 
@@ -5239,6 +5265,26 @@ imported by:
 </div>
 
 <div class="node">
+  <a name="app.ui.qt.widgets.send_flow_widgets"></a>
+  <a target="code" href="///C:/Users/91637/OneDrive/Desktop/web_automation/desktop_app/app/ui/qt/widgets/send_flow_widgets.py" type="text/plain"><tt>app.ui.qt.widgets.send_flow_widgets</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#PySide6.QtCore">PySide6.QtCore</a>
+ &#8226;   <a href="#PySide6.QtGui">PySide6.QtGui</a>
+ &#8226;   <a href="#PySide6.QtWidgets">PySide6.QtWidgets</a>
+ &#8226;   <a href="#__future__">__future__</a>
+ &#8226;   <a href="#app.ui.qt.widgets">app.ui.qt.widgets</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#app.ui.qt.pages.send_messages_page">app.ui.qt.pages.send_messages_page</a>
+
+  </div>
+
+</div>
+
+<div class="node">
   <a name="app.ui.qt.widgets.send_page_widgets"></a>
   <a target="code" href="///C:/Users/91637/OneDrive/Desktop/web_automation/desktop_app/app/ui/qt/widgets/send_page_widgets.py" type="text/plain"><tt>app.ui.qt.widgets.send_page_widgets</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
@@ -5285,6 +5331,8 @@ imports:
     <a href="#app.whatsapp">app.whatsapp</a>
  &#8226;   <a href="#config">config</a>
  &#8226;   <a href="#contextlib">contextlib</a>
+ &#8226;   <a href="#ctypes">ctypes</a>
+ &#8226;   <a href="#ctypes.wintypes">ctypes.wintypes</a>
  &#8226;   <a href="#json">json</a>
  &#8226;   <a href="#logging">logging</a>
  &#8226;   <a href="#os">os</a>
@@ -5304,8 +5352,10 @@ imports:
  &#8226;   <a href="#selenium.webdriver.support.expected_conditions">selenium.webdriver.support.expected_conditions</a>
  &#8226;   <a href="#selenium.webdriver.support.ui">selenium.webdriver.support.ui</a>
  &#8226;   <a href="#subprocess">subprocess</a>
+ &#8226;   <a href="#sys">sys</a>
  &#8226;   <a href="#threading">threading</a>
  &#8226;   <a href="#time">time</a>
+ &#8226;   <a href="#typing">typing</a>
  &#8226;   <a href="#urllib.error">urllib.error</a>
  &#8226;   <a href="#urllib.request">urllib.request</a>
  &#8226;   <a href="#webdriver_manager.chrome">webdriver_manager.chrome</a>
@@ -5319,6 +5369,7 @@ imported by:
  &#8226;   <a href="#app.services.local_workflow_controller">app.services.local_workflow_controller</a>
  &#8226;   <a href="#app.ui.main_window">app.ui.main_window</a>
  &#8226;   <a href="#app.ui.qt.pages.groups_page">app.ui.qt.pages.groups_page</a>
+ &#8226;   <a href="#app.ui.qt.pages.send_messages_page">app.ui.qt.pages.send_messages_page</a>
  &#8226;   <a href="#app.ui.qt.pages.wa_contacts_page">app.ui.qt.pages.wa_contacts_page</a>
  &#8226;   <a href="#app.whatsapp">app.whatsapp</a>
  &#8226;   <a href="#main_desktop.py">main_desktop.py</a>
@@ -7741,8 +7792,8 @@ imported by:
   <a target="code" href="///C:/Program%20Files/Python311/Lib/copy.py" type="text/plain"><tt>copy</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
-    <a href="#'org.python'">'org.python'</a>
- &#8226;   <a href="#copyreg">copyreg</a>
+    <a href="#copyreg">copyreg</a>
+ &#8226;   <a href="#org">org</a>
  &#8226;   <a href="#types">types</a>
  &#8226;   <a href="#weakref">weakref</a>
 
@@ -7843,7 +7894,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#ctypes._aix">ctypes._aix</a>
+    <a href="#app.whatsapp.sender">app.whatsapp.sender</a>
+ &#8226;   <a href="#ctypes._aix">ctypes._aix</a>
  &#8226;   <a href="#ctypes._endian">ctypes._endian</a>
  &#8226;   <a href="#ctypes.macholib">ctypes.macholib</a>
  &#8226;   <a href="#ctypes.util">ctypes.util</a>
@@ -8007,7 +8059,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#ctypes">ctypes</a>
+    <a href="#app.whatsapp.sender">app.whatsapp.sender</a>
+ &#8226;   <a href="#ctypes">ctypes</a>
  &#8226;   <a href="#pyautogui._pyautogui_win">pyautogui._pyautogui_win</a>
  &#8226;   <a href="#pygetwindow._pygetwindow_win">pygetwindow._pygetwindow_win</a>
  &#8226;   <a href="#pyperclip">pyperclip</a>
@@ -8048,6 +8101,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#app.core.profile_state">app.core.profile_state</a>
+ &#8226;   <a href="#app.services.local_workflow_controller">app.services.local_workflow_controller</a>
  &#8226;   <a href="#pprint">pprint</a>
  &#8226;   <a href="#selenium.webdriver.common.bidi.browsing_context">selenium.webdriver.common.bidi.browsing_context</a>
  &#8226;   <a href="#selenium.webdriver.common.bidi.input">selenium.webdriver.common.bidi.input</a>
@@ -13218,6 +13272,7 @@ imported by:
  &#8226;   <a href="#PIL.PpmImagePlugin">PIL.PpmImagePlugin</a>
  &#8226;   <a href="#PIL.TiffImagePlugin">PIL.TiffImagePlugin</a>
  &#8226;   <a href="#_pydecimal">_pydecimal</a>
+ &#8226;   <a href="#app.ui.qt.pages.send_messages_page">app.ui.qt.pages.send_messages_page</a>
  &#8226;   <a href="#asyncio.windows_events">asyncio.windows_events</a>
  &#8226;   <a href="#babel.dates">babel.dates</a>
  &#8226;   <a href="#datetime">datetime</a>
@@ -13300,7 +13355,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#pyautogui">pyautogui</a>
+    <a href="#main_desktop.py">main_desktop.py</a>
+ &#8226;   <a href="#pyautogui">pyautogui</a>
 
   </div>
 
@@ -14293,7 +14349,7 @@ imported by:
   <a target="code" href="" type="text/plain"><tt>org</tt></a>
 <span class="moduletype">MissingModule</span>  <div class="import">
 imported by:
-    <a href="#pickle">pickle</a>
+    <a href="#copy">copy</a>
 
   </div>
 
@@ -14673,14 +14729,14 @@ imported by:
   <a target="code" href="///C:/Program%20Files/Python311/Lib/pickle.py" type="text/plain"><tt>pickle</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
-    <a href="#_compat_pickle">_compat_pickle</a>
+    <a href="#'org.python'">'org.python'</a>
+ &#8226;   <a href="#_compat_pickle">_compat_pickle</a>
  &#8226;   <a href="#_pickle">_pickle</a>
  &#8226;   <a href="#codecs">codecs</a>
  &#8226;   <a href="#copyreg">copyreg</a>
  &#8226;   <a href="#functools">functools</a>
  &#8226;   <a href="#io">io</a>
  &#8226;   <a href="#itertools">itertools</a>
- &#8226;   <a href="#org">org</a>
  &#8226;   <a href="#pprint">pprint</a>
  &#8226;   <a href="#re">re</a>
  &#8226;   <a href="#struct">struct</a>
@@ -14917,6 +14973,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#app.whatsapp.sender">app.whatsapp.sender</a>
+ &#8226;   <a href="#main_desktop.py">main_desktop.py</a>
  &#8226;   <a href="#pyautogui">pyautogui</a>
  &#8226;   <a href="#pyautogui._pyautogui_osx">pyautogui._pyautogui_osx</a>
  &#8226;   <a href="#pyautogui._pyautogui_win">pyautogui._pyautogui_win</a>
@@ -15088,7 +15145,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#pyautogui">pyautogui</a>
+    <a href="#main_desktop.py">main_desktop.py</a>
+ &#8226;   <a href="#pyautogui">pyautogui</a>
  &#8226;   <a href="#pygetwindow._pygetwindow_macos">pygetwindow._pygetwindow_macos</a>
  &#8226;   <a href="#pygetwindow._pygetwindow_win">pygetwindow._pygetwindow_win</a>
  &#8226;   <a href="#pyscreeze">pyscreeze</a>
@@ -15252,6 +15310,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#app.whatsapp.sender">app.whatsapp.sender</a>
+ &#8226;   <a href="#main_desktop.py">main_desktop.py</a>
  &#8226;   <a href="#mouseinfo">mouseinfo</a>
 
   </div>
@@ -15302,7 +15361,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#pyautogui">pyautogui</a>
+    <a href="#main_desktop.py">main_desktop.py</a>
+ &#8226;   <a href="#pyautogui">pyautogui</a>
 
   </div>
 
@@ -15331,7 +15391,8 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#pyautogui">pyautogui</a>
+    <a href="#main_desktop.py">main_desktop.py</a>
+ &#8226;   <a href="#pyautogui">pyautogui</a>
 
   </div>
 
@@ -18846,6 +18907,7 @@ imported by:
  &#8226;   <a href="#_pydecimal">_pydecimal</a>
  &#8226;   <a href="#_pyi_rth_utils">_pyi_rth_utils</a>
  &#8226;   <a href="#app.ui.qt.modern_main_window">app.ui.qt.modern_main_window</a>
+ &#8226;   <a href="#app.whatsapp.sender">app.whatsapp.sender</a>
  &#8226;   <a href="#argparse">argparse</a>
  &#8226;   <a href="#ast">ast</a>
  &#8226;   <a href="#asyncio">asyncio</a>
@@ -19927,6 +19989,7 @@ imported by:
  &#8226;   <a href="#app.ui.qt.pages.contacts_page">app.ui.qt.pages.contacts_page</a>
  &#8226;   <a href="#app.ui.qt.pages.send_messages_page">app.ui.qt.pages.send_messages_page</a>
  &#8226;   <a href="#app.ui.qt.widgets.profile_combo_utils">app.ui.qt.widgets.profile_combo_utils</a>
+ &#8226;   <a href="#app.whatsapp.sender">app.whatsapp.sender</a>
  &#8226;   <a href="#asyncio.staggered">asyncio.staggered</a>
  &#8226;   <a href="#asyncio.timeouts">asyncio.timeouts</a>
  &#8226;   <a href="#babel.core">babel.core</a>
@@ -22215,6 +22278,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#app.whatsapp.sender">app.whatsapp.sender</a>
+ &#8226;   <a href="#main_desktop.py">main_desktop.py</a>
  &#8226;   <a href="#selenium.webdriver.remote.websocket_connection">selenium.webdriver.remote.websocket_connection</a>
  &#8226;   <a href="#websocket">websocket</a>
  &#8226;   <a href="#websocket._abnf">websocket._abnf</a>

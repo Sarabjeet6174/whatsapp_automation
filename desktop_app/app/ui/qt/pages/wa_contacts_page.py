@@ -30,7 +30,6 @@ from app.whatsapp.sender import sync_whatsapp_contacts_from_new_chat
 
 class WaContactsPage(QWidget):
     status_message = Signal(str)
-    open_send_requested = Signal(object)
     _sync_finished = Signal(str)
 
     def __init__(self, workflow: LocalWorkflowController, parent: QWidget | None = None) -> None:
@@ -68,7 +67,6 @@ class WaContactsPage(QWidget):
         row.addWidget(QPushButton("Load from WhatsApp", clicked=self._sync))
         row.addWidget(QPushButton("Export CSV", clicked=self._export_csv))
         row.addWidget(QPushButton("Clear saved list", clicked=self._clear))
-        row.addWidget(QPushButton("Send selected…", clicked=self._open_send_with_selected))
         v.addLayout(row)
 
         search_row = QHBoxLayout()
@@ -230,33 +228,14 @@ class WaContactsPage(QWidget):
                 w = csv.writer(f)
                 # Keep both fields so users can correct/normalize names later.
                 # contacts_page importer maps whatsapp_name -> phone when phone is blank.
-                # search_name = exact WhatsApp sidebar search string; name left blank to fill later.
-                w.writerow(["name", "search_name", "phone", "email", "company"])
+                w.writerow(["name", "phone", "email", "company"])
                 for r in rows:
                     wa_name = str(r.get("name", "")).strip()
                     wa_phone = str(r.get("phone", "")).strip()
                     if not wa_name:
                         continue
-                    w.writerow(["", wa_name, wa_phone, "", ""])
+                    w.writerow([wa_name, wa_phone, "", ""])
         except Exception as e:
             QMessageBox.critical(self, "Export CSV", f"{os.path.basename(path)}\n\n{e}")
             return
         self.status_message.emit(f"Exported {len(rows)} WhatsApp contact row(s) to CSV.")
-
-    def _open_send_with_selected(self) -> None:
-        pid = self._pid()
-        if not pid:
-            QMessageBox.information(self, "Send", "Select a profile first.")
-            return
-        names: list[str] = []
-        seen: set[str] = set()
-        for r in {i.row() for i in self._table.selectedItems()}:
-            it = self._table.item(r, 0)
-            name = (it.text() if it else "").strip()
-            if name and name not in seen:
-                seen.add(name)
-                names.append(name)
-        if not names:
-            QMessageBox.information(self, "Send", "Select one or more WhatsApp contacts.")
-            return
-        self.open_send_requested.emit({"source": "wa", "profile_id": int(pid), "wa_names": names})

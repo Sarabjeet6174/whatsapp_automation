@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profiles — WhatsApp Auto</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell ">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">W</div>
+        <span class="brand-text">WhatsApp Auto</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Workflow</div>
+      <a href="index.html" class="nav-item "><span class="nav-icon">📊</span><span>Dashboard</span></a>
+      <a href="profiles.html" class="nav-item active"><span class="nav-icon">👤</span><span>Profiles</span></a>
+      <a href="contacts.html" class="nav-item "><span class="nav-icon">📋</span><span>Contacts & Lists</span></a>
+      <a href="wa_contacts.html" class="nav-item "><span class="nav-icon">💬</span><span>WhatsApp Contacts</span></a>
+      <a href="groups.html" class="nav-item "><span class="nav-icon">👥</span><span>WhatsApp Groups</span></a>
+      <a href="templates.html" class="nav-item "><span class="nav-icon">📝</span><span>Templates</span></a>
+      <a href="send_messages.html" class="nav-item "><span class="nav-icon">📤</span><span>Send Messages</span></a>
+      <a href="schedule.html" class="nav-item "><span class="nav-icon">⏰</span><span>Schedule</span></a>
+      <a href="logs.html" class="nav-item "><span class="nav-icon">📜</span><span>Logs</span></a>
+
+      </nav>
+      <div class="sidebar-footer">
+        <div class="profile-mini">
+          <div class="profile-avatar">JD</div>
+          <div class="profile-info">
+            <div class="profile-name">John Doe</div>
+            <div class="profile-status">+1 555-0199</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">Profiles</h1>
+        <span class="page-subtitle">Manage WhatsApp identities</span>
+      </div>
+      <div class="topbar-right">
+        <div class="search-trigger" title="Command Palette (Ctrl+K)">
+          <span>🔍</span>
+          <span>Search anything…</span>
+          <span class="kbd-shortcut">Ctrl K</span>
+        </div>
+        <div class="toolbar-divider"></div>
+        
+        <button class="btn-icon" title="Notifications">🔔</button>
+        <button class="btn-icon" title="Settings">⚙️</button>
+      </div>
+    </header>
+    <main class="main">
+      <div class="content-scroll">
+        <div class="content-padded">
+
+          <!-- TOOLBAR -->
+          <div class="toolbar">
+            <button class="btn btn-primary" data-modal="addProfileModal">+ New Profile</button>
+            <div class="toolbar-divider"></div>
+            <button class="btn btn-secondary" data-toast="List refreshed" data-toast-type="success">↻ Refresh</button>
+            <div class="toolbar-spacer"></div>
+            <span class="text-tertiary" style="font-size:var(--text-sm)">3 profiles</span>
+          </div>
+
+          <!-- PROFILE GRID -->
+          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:var(--space-4);">
+            <!-- Profile Card 1 -->
+            <div class="card">
+              <div class="card-body">
+                <div style="display:flex; align-items:center; gap:var(--space-3); margin-bottom:var(--space-3);">
+                  <div style="width:44px; height:44px; border-radius:var(--radius-full); background:linear-gradient(135deg,#22c55e,#16a34a); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;">JD</div>
+                  <div style="min-width:0;">
+                    <div style="font-weight:600; color:var(--text-primary); font-size:var(--text-md);">John Doe</div>
+                    <div style="font-size:var(--text-sm); color:var(--text-tertiary); font-family:var(--font-mono);">+1 555-0199</div>
+                  </div>
+                  <span class="status status-success" style="margin-left:auto; flex-shrink:0;">Ready</span>
+                </div>
+                <div style="display:flex; gap:var(--space-2); margin-top:var(--space-3);">
+                  <button class="btn btn-secondary btn-sm" style="flex:1;" data-toast="WhatsApp session active" data-toast-type="success">Open WhatsApp</button>
+                  <button class="btn btn-danger btn-sm" style="flex:1;" data-modal="deleteProfileModal">Delete</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Profile Card 2 -->
+            <div class="card">
+              <div class="card-body">
+                <div style="display:flex; align-items:center; gap:var(--space-3); margin-bottom:var(--space-3);">
+                  <div style="width:44px; height:44px; border-radius:var(--radius-full); background:linear-gradient(135deg,#3b82f6,#2563eb); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;">AS</div>
+                  <div style="min-width:0;">
+                    <div style="font-weight:600; color:var(--text-primary); font-size:var(--text-md);">Acme Sales</div>
+                    <div style="font-size:var(--text-sm); color:var(--text-tertiary); font-family:var(--font-mono);">+1 555-0188</div>
+                  </div>
+                  <span class="status status-idle" style="margin-left:auto; flex-shrink:0;">Idle</span>
+                </div>
+                <div style="display:flex; gap:var(--space-2); margin-top:var(--space-3);">
+                  <button class="btn btn-secondary btn-sm" style="flex:1;" data-toast="Opening WhatsApp Web…" data-toast-type="warn">Open WhatsApp</button>
+                  <button class="btn btn-danger btn-sm" style="flex:1;" data-modal="deleteProfileModal">Delete</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Profile Card 3 -->
+            <div class="card">
+              <div class="card-body">
+                <div style="display:flex; align-items:center; gap:var(--space-3); margin-bottom:var(--space-3);">
+                  <div style="width:44px; height:44px; border-radius:var(--radius-full); background:linear-gradient(135deg,#f59e0b,#d97706); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;">SP</div>
+                  <div style="min-width:0;">
+                    <div style="font-weight:600; color:var(--text-primary); font-size:var(--text-md);">Support Team</div>
+                    <div style="font-size:var(--text-sm); color:var(--text-tertiary); font-family:var(--font-mono);">+1 555-0177</div>
+                  </div>
+                  <span class="status status-error" style="margin-left:auto; flex-shrink:0;">Error</span>
+                </div>
+                <div style="background:rgba(239,68,68,0.06); border:1px solid rgba(239,68,68,0.15); border-radius:var(--radius-md); padding:var(--space-2) var(--space-3); margin-bottom:var(--space-3);">
+                  <div style="font-size:var(--text-xs); color:var(--accent-danger);">Session expired. Re-authentication required.</div>
+                </div>
+                <div style="display:flex; gap:var(--space-2);">
+                  <button class="btn btn-secondary btn-sm" style="flex:1;" data-toast="Re-authenticating…" data-toast-type="warn">Reconnect</button>
+                  <button class="btn btn-danger btn-sm" style="flex:1;" data-modal="deleteProfileModal">Delete</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- EMPTY STATE DEMO (hidden by default, shown for reference) -->
+          <div style="margin-top:var(--space-6); opacity:0.5;">
+            <div style="font-size:var(--text-xs); color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:var(--space-3);">Empty State Reference</div>
+            <div class="card">
+              <div class="empty-state">
+                <div class="empty-icon">👤</div>
+                <div class="empty-title">No profiles yet</div>
+                <div class="empty-desc">Create your first WhatsApp profile to start sending messages.</div>
+                <button class="btn btn-primary" style="margin-top:var(--space-2);" data-modal="addProfileModal">+ Create Profile</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- LOADING STATE DEMO -->
+          <div style="margin-top:var(--space-4); opacity:0.5;">
+            <div style="font-size:var(--text-xs); color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:var(--space-3);">Loading State Reference</div>
+            <div class="card">
+              <div class="loading-state">
+                <div class="spinner"></div>
+                <div style="font-size:var(--text-sm); color:var(--text-secondary);">Opening WhatsApp Web…</div>
+                <div style="font-size:var(--text-xs); color:var(--text-tertiary);">This may take up to 30 seconds</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ADD PROFILE MODAL -->
+          <div class="modal-overlay" id="addProfileModal">
+            <div class="modal">
+              <div class="modal-header">
+                <div class="modal-title">New Profile</div>
+                <button class="btn-icon" onclick="closeModal('addProfileModal')">✕</button>
+              </div>
+              <div class="modal-body">
+                <div class="form-group">
+                  <label class="form-label">Profile Name</label>
+                  <input type="text" class="form-input" placeholder="e.g. Sales Team">
+                  <span class="form-hint">A friendly name to identify this profile</span>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Phone Number</label>
+                  <input type="text" class="form-input" placeholder="+1 555-0000">
+                  <span class="form-hint">The WhatsApp number for this profile</span>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal('addProfileModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="closeModal('addProfileModal'); showToast('Profile created successfully', 'success');">Save Profile</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- DELETE CONFIRMATION MODAL -->
+          <div class="modal-overlay" id="deleteProfileModal">
+            <div class="modal" style="max-width:380px;">
+              <div class="modal-header">
+                <div class="modal-title" style="color:var(--accent-danger);">Delete Profile?</div>
+                <button class="btn-icon" onclick="closeModal('deleteProfileModal')">✕</button>
+              </div>
+              <div class="modal-body">
+                <p style="font-size:var(--text-sm); color:var(--text-secondary); line-height:1.6;">
+                  This will permanently delete the profile and all associated data including contacts, templates, logs, and scheduled jobs. This action cannot be undone.
+                </p>
+              </div>
+              <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal('deleteProfileModal')">Cancel</button>
+                <button class="btn btn-danger" onclick="closeModal('deleteProfileModal'); showToast('Profile deleted', 'warn');">Delete Permanently</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+  <!-- COMMAND PALETTE OVERLAY -->
+    <div class="modal-overlay" id="paletteOverlay"></div>
+    <div class="command-palette" id="commandPalette">
+      <input type="text" class="cp-input" id="cpInput" placeholder="Type a command or search…">
+      <div class="cp-results">
+        <div class="cp-item selected">
+          <div class="cp-item-icon">📤</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">Send Messages</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Open the send workflow</div>
+          </div>
+          <span class="cp-item-meta">G S</span>
+        </div>
+        <div class="cp-item">
+          <div class="cp-item-icon">👤</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">New Profile</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Create a new WhatsApp profile</div>
+          </div>
+          <span class="cp-item-meta">G P</span>
+        </div>
+        <div class="cp-item">
+          <div class="cp-item-icon">📋</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">Import Contacts</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Import from CSV file</div>
+          </div>
+          <span class="cp-item-meta">G I</span>
+        </div>
+        <div class="cp-item">
+          <div class="cp-item-icon">⏰</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">View Schedule</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Check pending jobs</div>
+          </div>
+          <span class="cp-item-meta">G D</span>
+        </div>
+      </div>
+    </div>
+  <div class="toast-container" id="toastContainer"></div>
+  <script src="app.js"></script>
+</body>
+</html>

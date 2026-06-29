@@ -42,8 +42,10 @@ class DashboardPage(QWidget):
         cards = [
             (6, "💬", "Send messages", "Compose, attachments, recipients, live preview."),
             (1, "👤", "Profiles", "Create profiles and open WhatsApp Web."),
+            (2, "📇", "Contacts & lists", "Manage lists, import CSV, and curate contacts."),
             (3, "📱", "WhatsApp contacts", "Sync names from New chat in WhatsApp."),
             (4, "👥", "WhatsApp groups", "Sync group names from New chat > Groups."),
+            (5, "📝", "Templates", "Save reusable templates with variable placeholders."),
             (7, "🕐", "Schedule", "See upcoming scheduled sends."),
             (8, "📋", "Logs", "Recent send results and errors."),
         ]

@@ -48,7 +48,7 @@ class TemplatesPage(QWidget):
         v.addWidget(title)
 
         hint = QLabel(
-            "Use placeholders like {name}, {phone}, {company}, {search_name}, or any column from your selected list."
+            "Use placeholders like {name}, {phone}, {company}, or any column from your selected list."
         )
         hint.setWordWrap(True)
         hint.setStyleSheet("color: #94A3B8; font-size: 14px;")
@@ -169,7 +169,7 @@ class TemplatesPage(QWidget):
                 it.widget().deleteLater()
         data = self._var_source.currentData()
         if data is None:
-            fields = ["name", "phone", "email", "company", "search_name"]
+            fields = ["name", "phone", "email", "company"]
         else:
             fields = list((data or {}).get("fields") or DEFAULT_LIST_FIELDS)
         for f in fields:

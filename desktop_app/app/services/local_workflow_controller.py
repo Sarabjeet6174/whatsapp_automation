@@ -8,6 +8,7 @@ import logging
 import queue
 import threading
 import time
+from dataclasses import dataclass, field
 from datetime import datetime
 from string import Formatter
 from typing import Any, Callable
@@ -20,9 +21,13 @@ from app.db.local_access import (
     mark_local_scheduled_job_dispatched,
     mark_local_scheduled_job_error,
 )
-from app.whatsapp.sender import send_message
+from app.whatsapp.sender import cleanup_whatsapp_send_session, is_driver_alive, send_message
 
 logger = logging.getLogger(__name__)
+
+_SCHEDULE_POLL_IDLE_S = 30.0
+_SCHEDULE_POLL_ACTIVE_S = 3.0
+_SEND_PAUSE_POLL_S = 0.4
 
 
 def render_message_template(template: str, contact: dict[str, Any], custom_vars: dict[str, str]) -> str:
@@ -32,7 +37,6 @@ def render_message_template(template: str, contact: dict[str, Any], custom_vars:
         "phone": contact.get("phone", ""),
         "email": contact.get("email", ""),
         "company": contact.get("company", ""),
-        "search_name": str(ex.get("search_name", "")),
     }
     for k, v in ex.items():
         vals[str(k)] = str(v)
@@ -42,6 +46,25 @@ def render_message_template(template: str, contact: dict[str, Any], custom_vars:
     for key in keys:
         out = out.replace("{" + key + "}", str(vals.get(key, "")))
     return out
+
+
+@dataclass
+class _ProfileSendControl:
+    paused: threading.Event = field(default_factory=threading.Event)
+    cancel: bool = False
+    _lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def request_cancel(self) -> None:
+        with self._lock:
+            self.cancel = True
+
+    def clear_cancel(self) -> None:
+        with self._lock:
+            self.cancel = False
+
+    def is_cancelled(self) -> bool:
+        with self._lock:
+            return self.cancel
 
 
 class LocalWorkflowController:
@@ -62,6 +85,8 @@ class LocalWorkflowController:
         self._local_send_queues: dict[str, "queue.Queue[dict[str, Any]]"] = {}
         self._local_send_workers_running: set[str] = set()
         self._local_send_lock = threading.Lock()
+        self._send_controls: dict[str, _ProfileSendControl] = {}
+        self._send_progress_handlers: dict[str, Callable[[str, str], None]] = {}
 
         self._local_schedule_worker_running = False
         self._local_schedule_lock = threading.Lock()
@@ -69,6 +94,64 @@ class LocalWorkflowController:
 
     def sync_profile_list(self, profiles: list[dict[str, Any]]) -> None:
         self.local_profiles = list(profiles)
+
+    def _send_control(self, profile_phone: str) -> _ProfileSendControl:
+        key = str(profile_phone or "").strip()
+        if key not in self._send_controls:
+            self._send_controls[key] = _ProfileSendControl()
+        return self._send_controls[key]
+
+    def pending_send_count(self, profile_phone: str) -> int:
+        with self._local_send_lock:
+            q = self._local_send_queues.get(str(profile_phone or "").strip())
+            if q is None:
+                return 0
+            return q.qsize()
+
+    def is_send_queue_paused(self, profile_phone: str) -> bool:
+        return self._send_control(profile_phone).paused.is_set()
+
+    def pause_send_queue(self, profile_phone: str) -> None:
+        self._send_control(profile_phone).paused.set()
+
+    def resume_send_queue(self, profile_phone: str) -> None:
+        self._send_control(profile_phone).paused.clear()
+
+    def cancel_send_queue(self, profile_phone: str) -> int:
+        """Drop pending jobs; in-flight job stops before the next recipient."""
+        phone = str(profile_phone or "").strip()
+        ctrl = self._send_control(phone)
+        ctrl.request_cancel()
+        drained = 0
+        with self._local_send_lock:
+            q = self._local_send_queues.get(phone)
+            if q is not None:
+                while True:
+                    try:
+                        q.get_nowait()
+                        q.task_done()
+                        drained += 1
+                    except queue.Empty:
+                        break
+        return drained
+
+    def set_send_progress_handler(
+        self, profile_phone: str, handler: Callable[[str, str], None] | None
+    ) -> None:
+        key = str(profile_phone or "").strip()
+        if handler is None:
+            self._send_progress_handlers.pop(key, None)
+        else:
+            self._send_progress_handlers[key] = handler
+
+    def _emit_send_progress(self, profile_phone: str, event_type: str, message: str) -> None:
+        logger.info("[%s][%s] %s", profile_phone, event_type, message)
+        handler = self._send_progress_handlers.get(str(profile_phone or "").strip())
+        if handler:
+            try:
+                handler(event_type, message)
+            except Exception:
+                pass
 
     def ensure_local_profile_ready(
         self,
@@ -92,7 +175,12 @@ class LocalWorkflowController:
             state = ProfileState(client_idno=int(profile_id), client_name=resolved_name, client_phno=phone)
             self.profile_by_phno[phone] = state
         if state.get_driver() is not None:
-            return state, ""
+            if is_driver_alive(state.get_driver()):
+                return state, ""
+            try:
+                state.set_driver(None)
+            except Exception:
+                state.set_driver(None)
         result = self.scheduler.open_profile(state)
         if result != "SUCCESS":
             return None, result
@@ -100,6 +188,7 @@ class LocalWorkflowController:
 
     def enqueue_send_job(self, job: dict[str, Any]) -> None:
         queue_key = str(job["profile_phone"])
+        self._send_control(queue_key).clear_cancel()
         with self._local_send_lock:
             if queue_key not in self._local_send_queues:
                 self._local_send_queues[queue_key] = queue.Queue()
@@ -114,6 +203,25 @@ class LocalWorkflowController:
             if profile_phone not in self._local_send_queues:
                 self._local_send_queues[profile_phone] = queue.Queue()
         threading.Thread(target=self._local_send_worker_loop, args=(profile_phone,), daemon=True).start()
+
+    def _wait_while_paused_or_cancelled(self, profile_phone: str, emit: Callable[[str, str], None]) -> bool:
+        """Return False if cancelled; True when ready to continue."""
+        ctrl = self._send_control(profile_phone)
+        while ctrl.paused.is_set():
+            if ctrl.is_cancelled():
+                emit("queue_cancelled", "Send queue cancelled while paused.")
+                ctrl.clear_cancel()
+                return False
+            time.sleep(_SEND_PAUSE_POLL_S)
+        if ctrl.is_cancelled():
+            emit("queue_cancelled", "Send queue cancelled.")
+            ctrl.clear_cancel()
+            return False
+        return True
+
+    def _try_release_driver_if_idle(self, profile_phone: str) -> None:
+        """Keep Chrome open after sends so the WhatsApp session stays logged in."""
+        return
 
     def _local_send_worker_loop(self, profile_phone: str) -> None:
         while True:
@@ -139,10 +247,17 @@ class LocalWorkflowController:
         profile_phone = str(job["profile_phone"])
         profile_id = int(job["profile_id"])
         target_mode = str(job["target_mode"])
-        allow_search = bool(job.get("allow_search", False))
+        ctrl = self._send_control(profile_phone)
 
         def emit_local(event_type: str, message: str) -> None:
-            logger.info("[%s][%s] %s", profile_phone, event_type, message)
+            self._emit_send_progress(profile_phone, event_type, message)
+
+        items = list(job.get("items", []) or [])
+        emit_local("queue_started", f"Sending {len(items)} message(s)…")
+
+        if not self._wait_while_paused_or_cancelled(profile_phone, emit_local):
+            emit_local("queue_finished", "Send operation cancelled.")
+            return
 
         state, open_err = self.ensure_local_profile_ready(
             profile_id=profile_id,
@@ -167,6 +282,7 @@ class LocalWorkflowController:
                     )
                 except Exception:
                     pass
+            emit_local("queue_finished", "Send operation finished.")
             return
         driver = state.get_driver()
         if driver is None:
@@ -187,6 +303,7 @@ class LocalWorkflowController:
                     )
                 except Exception:
                     pass
+            emit_local("queue_finished", "Send operation finished.")
             return
 
         att = [str(x) for x in (job.get("attachment_paths") or []) if x]
@@ -194,12 +311,13 @@ class LocalWorkflowController:
         attachment_only = bool(job.get("attachment_only_no_caption", False))
 
         for item in job.get("items", []):
+            if not self._wait_while_paused_or_cancelled(profile_phone, emit_local):
+                break
             item_type = str(item.get("item_type") or ("group" if target_mode == "group" else "contact"))
             is_group = item_type == "group"
             receiver = str(item.get("receiver", ""))
             rendered = str(item.get("rendered", ""))
             name = str(item.get("name", ""))
-            item_allow_search = allow_search or bool(item.get("force_allow_search", False))
             if is_group:
                 receiver = receiver.strip()
                 if not receiver:
@@ -212,8 +330,9 @@ class LocalWorkflowController:
                     receiver_identifier=receiver,
                     message=out_msg,
                     is_group=is_group,
-                    allow_search=item_allow_search,
+                    allow_search=False,
                     attachment_paths=att_kw,
+                    progress=lambda msg: emit_local("send_ui", msg),
                 )
                 if result == "SUCCESS":
                     try:
@@ -221,6 +340,8 @@ class LocalWorkflowController:
                     except Exception as e:
                         emit_local("log_error", f"{'Group' if is_group else 'Contact'} log write failed: {e}")
                     emit_local("group_sent" if is_group else "contact_sent", f"{name} ({receiver})")
+                    if att_kw and len(job.get("items", [])) > 1:
+                        time.sleep(1.0)
                 else:
                     try:
                         log_local_send(profile_id, "group" if is_group else "contact", receiver, out_msg, "ERROR", result)
@@ -229,6 +350,14 @@ class LocalWorkflowController:
                     emit_local("group_error" if is_group else "contact_error", f"{name} ({receiver}): {result}")
             except Exception as e:
                 emit_local("group_exception" if is_group else "contact_exception", f"{name} ({receiver}): {e}")
+
+        ctrl.clear_cancel()
+        if att_kw and driver is not None:
+            try:
+                cleanup_whatsapp_send_session(driver)
+            except Exception:
+                pass
+        emit_local("queue_finished", "Send operation finished.")
 
     def ensure_schedule_worker(self) -> None:
         with self._local_schedule_lock:
@@ -239,6 +368,7 @@ class LocalWorkflowController:
 
     def _local_schedule_worker_loop(self) -> None:
         while True:
+            due_jobs: list[dict[str, Any]] = []
             try:
                 due_jobs = fetch_due_local_scheduled_jobs(datetime.now(), limit=40)
                 for sched in due_jobs:
@@ -263,7 +393,7 @@ class LocalWorkflowController:
                         pass
             except Exception as e:
                 logger.error("Local schedule worker loop error: %s", e)
-            time.sleep(2.0)
+            time.sleep(_SCHEDULE_POLL_ACTIVE_S if due_jobs else _SCHEDULE_POLL_IDLE_S)
 
 
 __all__ = [

@@ -58,3 +58,7 @@ desktop_app/chrome_profiles/
 
 # Cursor / editor metadata
 .cursor/
+docs/
+docs/ivr-voice-bot/
+docs/ivr-voice-bot/export/
+desktop_app/WhatsAppDesktop

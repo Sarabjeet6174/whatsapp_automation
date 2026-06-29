@@ -6,7 +6,7 @@ import csv
 import os
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -15,8 +15,10 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QLineEdit,
+    QMenu,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -44,9 +46,10 @@ class ContactsPage(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setObjectName("ContactsPage")
         v = QVBoxLayout(self)
-        v.setContentsMargins(40, 36, 48, 36)
-        v.setSpacing(16)
+        v.setContentsMargins(40, 36, 48, 24)
+        v.setSpacing(10)
 
         title = QLabel("Contacts & lists")
         title.setProperty("class", "sectionTitle")
@@ -56,7 +59,7 @@ class ContactsPage(QWidget):
             "Manage your contact lists and contacts here, including CSV import into the selected list."
         )
         note.setWordWrap(True)
-        note.setStyleSheet("color: #94A3B8; font-size: 14px; max-width: 880px;")
+        note.setProperty("class", "muted")
         v.addWidget(note)
 
         row = QHBoxLayout()
@@ -73,16 +76,15 @@ class ContactsPage(QWidget):
         row.addWidget(QPushButton("Add list", clicked=self._add_list))
         row.addWidget(QPushButton("Rename list", clicked=self._rename_list))
         row.addWidget(QPushButton("Delete list", clicked=self._delete_list))
-        row.addWidget(QPushButton("List columns…", clicked=self._edit_list_columns))
         row.addWidget(QPushButton("Import Contacts CSV", clicked=self._import_contacts_csv))
         v.addLayout(row)
 
         col_hint = QLabel(
-            "Each list can define which columns appear (name, phone, plus any custom keys for templates). "
-            "Use “List columns…” to add fields like search_name, region, or promo_code."
+            "Each list has columns for templates (name, phone, plus custom fields). "
+            "Click + beside the toolbar to add a column; click a column header to rename or remove it."
         )
         col_hint.setWordWrap(True)
-        col_hint.setStyleSheet("color: #94A3B8; font-size: 13px; max-width: 920px;")
+        col_hint.setProperty("class", "muted")
         v.addWidget(col_hint)
 
         search_row = QHBoxLayout()
@@ -94,23 +96,13 @@ class ContactsPage(QWidget):
         search_row.addWidget(self._search, 1)
         v.addLayout(search_row)
 
-        self._table = QTableWidget(0, 0)
-        self._table.horizontalHeader().setStretchLastSection(True)
-        self._table.verticalHeader().setVisible(False)
-        self._table.setMinimumHeight(400)
-        self._table.setAlternatingRowColors(True)
-        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self._table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self._table.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked)
-        self._table.itemChanged.connect(self._on_table_item_changed)
-        self._table.cellClicked.connect(self._on_table_cell_clicked)
-        v.addWidget(self._table)
-
         act_row = QHBoxLayout()
-        add_btn = QPushButton("Add contact row")
-        add_btn.setObjectName("Primary")
-        add_btn.clicked.connect(self._add_contact)
-        act_row.addWidget(add_btn)
+        act_row.setSpacing(10)
+        self._add_contact_btn = QPushButton("+")
+        self._add_contact_btn.setObjectName("IconPlus")
+        self._add_contact_btn.setToolTip("Add contact")
+        self._add_contact_btn.clicked.connect(self._add_contact)
+        act_row.addWidget(self._add_contact_btn)
         del_btn = QPushButton("Delete selected")
         del_btn.clicked.connect(self._delete_selected_contacts)
         act_row.addWidget(del_btn)
@@ -120,9 +112,32 @@ class ContactsPage(QWidget):
         send_btn = QPushButton("Send selected…")
         send_btn.clicked.connect(self._open_send_with_selected)
         act_row.addWidget(send_btn)
-        act_row.addWidget(QLabel("Use ✎ column to edit directly in the table."))
+        act_row.addWidget(QLabel("Double-click a cell or use ✎ to edit."))
         act_row.addStretch(1)
+        self._add_col_btn = QPushButton("+")
+        self._add_col_btn.setObjectName("IconPlusSmall")
+        self._add_col_btn.setToolTip("Add column")
+        self._add_col_btn.clicked.connect(self._add_column)
+        act_row.addWidget(self._add_col_btn)
         v.addLayout(act_row)
+
+        self._table = QTableWidget(0, 0)
+        self._table.setObjectName("ContactsTable")
+        self._table.horizontalHeader().setStretchLastSection(True)
+        self._table.verticalHeader().setVisible(False)
+        self._table.verticalHeader().setDefaultSectionSize(34)
+        self._table.setMinimumHeight(220)
+        self._table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._table.setAlternatingRowColors(True)
+        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self._table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self._table.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked)
+        self._table.itemChanged.connect(self._on_table_item_changed)
+        self._table.cellClicked.connect(self._on_table_cell_clicked)
+        self._table.horizontalHeader().sectionClicked.connect(self._on_header_section_clicked)
+        v.addWidget(self._table, 1)
 
         self._loading_table = False
 
@@ -171,7 +186,7 @@ class ContactsPage(QWidget):
                         if k and k.lower() not in {x.lower() for x in out}:
                             out.append(k)
                     low = {x.lower() for x in out}
-                    if "name" in low and ("phone" in low or "search_name" in low):
+                    if "name" in low and "phone" in low:
                         return out
         except Exception:
             pass
@@ -235,38 +250,127 @@ class ContactsPage(QWidget):
                 self._table.setItem(r, col + 1, cell)
         self._loading_table = False
 
-    def _edit_list_columns(self) -> None:
+    def _save_list_fields(self, fields: list[str]) -> bool:
+        cl = self._current_list()
+        if not cl:
+            return False
+        pid, lid = cl
+        lowers = {x.lower() for x in fields}
+        if "name" not in lowers or "phone" not in lowers:
+            QMessageBox.warning(self, "Columns", "Lists must always include name and phone columns.")
+            return False
+        try:
+            update_contact_list_fields(pid, lid, fields)
+        except Exception as e:
+            QMessageBox.critical(self, "Columns", str(e))
+            return False
+        self._fill_table()
+        return True
+
+    def _add_column(self) -> None:
         cl = self._current_list()
         if not cl:
             QMessageBox.information(self, "Columns", "Select a profile and list.")
             return
-        pid, lid = cl
-        cur = ", ".join(self._list_field_keys())
         text, ok = QInputDialog.getText(
             self,
-            "List columns",
-            "Comma-separated column keys (include name, and phone and/or search_name). Example:\n"
-            "name, phone, email, company, search_name, region",
-            text=cur,
+            "Add column",
+            "Column key (used in templates as {key}):",
         )
         if not ok:
             return
-        raw = [x.strip() for x in text.split(",") if x.strip()]
-        lowers = {x.lower() for x in raw}
-        if "name" not in lowers:
-            QMessageBox.warning(self, "Columns", "Include a name column in the list.")
+        key = text.strip()
+        if not key:
+            QMessageBox.information(self, "Columns", "Enter a column name.")
             return
-        if "phone" not in lowers and "search_name" not in lowers:
-            QMessageBox.warning(
-                self, "Columns", "Include phone and/or search_name so each row can be reached."
+        fields = self._list_field_keys()
+        if key.lower() in {f.lower() for f in fields}:
+            QMessageBox.information(self, "Columns", "That column already exists.")
+            return
+        fields.append(key)
+        self._save_list_fields(fields)
+
+    def _on_header_section_clicked(self, section: int) -> None:
+        if section <= 0:
+            return
+        fields = self._list_field_keys()
+        col_idx = section - 1
+        if col_idx < 0 or col_idx >= len(fields):
+            return
+        field = fields[col_idx]
+        menu = QMenu(self)
+        edit_act = menu.addAction("Edit column…")
+        del_act = menu.addAction("Delete column…")
+        if field.strip().lower() in ("name", "phone"):
+            del_act.setEnabled(False)
+        chosen = menu.exec(
+            self._table.horizontalHeader().mapToGlobal(
+                QPoint(
+                    self._table.horizontalHeader().sectionPosition(section)
+                    + self._table.horizontalHeader().sectionSize(section) // 2,
+                    self._table.horizontalHeader().height(),
+                )
             )
+        )
+        if chosen == edit_act:
+            self._edit_column(col_idx)
+        elif chosen == del_act:
+            self._delete_column(col_idx)
+
+    def _edit_column(self, col_idx: int) -> None:
+        cl = self._current_list()
+        if not cl:
             return
-        try:
-            update_contact_list_fields(pid, lid, raw)
-        except Exception as e:
-            QMessageBox.critical(self, "Columns", str(e))
+        pid, lid = cl
+        fields = list(self._list_field_keys())
+        if col_idx < 0 or col_idx >= len(fields):
             return
-        self._fill_table()
+        old_key = fields[col_idx]
+        new_key, ok = QInputDialog.getText(self, "Edit column", "Column key:", text=old_key)
+        if not ok:
+            return
+        new_key = new_key.strip()
+        if not new_key or new_key.lower() == old_key.lower():
+            return
+        if new_key.lower() in {f.lower() for f in fields}:
+            QMessageBox.information(self, "Columns", "That column name is already in use.")
+            return
+        fields[col_idx] = new_key
+        if not self._save_list_fields(fields):
+            return
+        if old_key.strip().lower() not in self._base_keys():
+            try:
+                for c in fetch_contacts(pid, lid):
+                    ex = dict(c.get("extra") or {})
+                    if old_key in ex:
+                        ex[new_key] = ex.pop(old_key)
+                        payload = {
+                            "name": c.get("name", ""),
+                            "phone": c.get("phone", ""),
+                            "email": c.get("email", ""),
+                            "company": c.get("company", ""),
+                            "extra": ex,
+                        }
+                        update_contact(pid, int(c["id"]), payload)
+            except Exception:
+                pass
+            self._fill_table()
+
+    def _delete_column(self, col_idx: int) -> None:
+        fields = list(self._list_field_keys())
+        if col_idx < 0 or col_idx >= len(fields):
+            return
+        field = fields[col_idx]
+        if field.strip().lower() in ("name", "phone"):
+            QMessageBox.information(self, "Columns", "Name and phone columns cannot be removed.")
+            return
+        if (
+            QMessageBox.question(self, "Delete column", f"Remove column “{field}” from this list?")
+            != QMessageBox.StandardButton.Yes
+        ):
+            return
+        fields.pop(col_idx)
+        self._save_list_fields(fields)
 
     def _current_list(self) -> tuple[int, int] | None:
         pid = self._pid()
@@ -308,14 +412,7 @@ class ContactsPage(QWidget):
 
     @staticmethod
     def _payload_has_identity(p: dict[str, Any]) -> bool:
-        ex = p.get("extra") or {}
-        if not isinstance(ex, dict):
-            ex = {}
-        return bool(
-            (p.get("name") or "").strip()
-            or (p.get("phone") or "").strip()
-            or str(ex.get("search_name", "")).strip()
-        )
+        return bool((p.get("name") or "").strip() or (p.get("phone") or "").strip())
 
     def _selected_contact_id(self) -> int | None:
         row = self._table.currentRow()
@@ -355,9 +452,7 @@ class ContactsPage(QWidget):
         if not fieldnames:
             return False
         low = {str(f).strip().lower() for f in fieldnames if f}
-        recv = {"phone", "whatsapp_name", "search_name"} & low
-        label = ("name" in low) or ("search_name" in low)
-        return bool(recv and label)
+        return "name" in low and "phone" in low
 
     @staticmethod
     def _csv_dict_row_to_payload(row: dict) -> dict:
@@ -369,13 +464,9 @@ class ContactsPage(QWidget):
         phone = canon.get("phone", "")
         if not phone:
             phone = canon.get("whatsapp_name", "")
-        excluded = ("name", "phone", "whatsapp_name", "email", "company", "search_name")
+        excluded = ("name", "phone", "whatsapp_name", "email", "company")
         extra = {k: v for k, v in canon.items() if k not in excluded}
-        if canon.get("search_name"):
-            extra["search_name"] = canon["search_name"]
         name = canon.get("name", "")
-        if not name and extra.get("search_name"):
-            name = extra["search_name"]
         return {
             "name": name,
             "phone": phone,
@@ -498,8 +589,7 @@ class ContactsPage(QWidget):
                     QMessageBox.warning(
                         self,
                         "Import CSV",
-                        "CSV must include a label column (name and/or search_name) and a way to "
-                        "reach the chat: phone, whatsapp_name, or search_name. Other columns go into extra fields.",
+                        "CSV must include name and phone columns. Other columns are stored as extra fields.",
                     )
                     return
                 for row in reader:

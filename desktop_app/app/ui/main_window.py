@@ -70,7 +70,7 @@ from app.db.local_access import (
     upsert_template,
 )
 from app.db.sql import fetch_clients
-from app.whatsapp.sender import send_message, sync_whatsapp_contacts_from_new_chat
+from app.whatsapp.sender import normalize_phone, send_message, sync_whatsapp_contacts_from_new_chat
 from config import allow_search_from_env
 from app.services.constants import WA_SEND_ID_OFFSET as _WA_SEND_ID_OFFSET
 
@@ -986,15 +986,17 @@ class MainWindow:
             for r in rows:
                 cid = int(r.get("id", 0))
                 nm = (r.get("name") or "").strip()
-                if cid <= 0 or not nm:
+                waph = str(r.get("phone", "") or "").strip()
+                digits = normalize_phone(waph)
+                if cid <= 0 or not digits:
                     continue
                 vid = _WA_SEND_ID_OFFSET + cid
                 if selected_only and vid not in combined_pick:
                     continue
                 c = {
                     "id": vid,
-                    "name": nm,
-                    "phone": "",
+                    "name": nm or waph,
+                    "phone": waph,
                     "email": "",
                     "company": "",
                     "extra": {},
@@ -1002,8 +1004,8 @@ class MainWindow:
                 }
                 items.append(
                     {
-                        "receiver": nm,
-                        "name": nm,
+                        "receiver": digits,
+                        "name": nm or waph,
                         "rendered": self._render_template(template, c, custom_vars),
                     }
                 )
@@ -1023,9 +1025,12 @@ class MainWindow:
         if selected_only:
             contacts = [c for c in contacts if c["id"] in selected_ids]
         for c in contacts:
+            digits = normalize_phone(str(c.get("phone", "")))
+            if not digits:
+                continue
             items.append(
                 {
-                    "receiver": str(c.get("phone", "")),
+                    "receiver": digits,
                     "name": str(c.get("name", "")),
                     "rendered": self._render_template(template, c, custom_vars),
                 }
@@ -1103,7 +1108,7 @@ class MainWindow:
         items = self._collect_local_send_items(selected_only=selected_only, target_mode=target_mode, template=template, custom_vars=custom_vars)
         if not items:
             return
-        allow_sched = target_mode == "wa_directory" or self.allow_search_var.get()
+        allow_sched = False
         payload: dict[str, Any] = {
             "profile_id": int(p["id"]),
             "profile_phone": str(p["phone"]),
@@ -2537,6 +2542,7 @@ class MainWindow:
                 is_group=True,
                 allow_search=allow_search,
                 attachment_paths=att_kw,
+                progress=lambda msg: emit_local("send_ui", msg),
             )
             if result == "SUCCESS":
                 try:
@@ -2565,6 +2571,7 @@ class MainWindow:
                     is_group=False,
                     allow_search=allow_search,
                     attachment_paths=att_kw,
+                    progress=lambda msg: emit_local("send_ui", msg),
                 )
                 if result == "SUCCESS":
                     try:
@@ -3075,7 +3082,7 @@ class MainWindow:
             "profile_phone": queue_key,
             "profile_name": str(p.get("name", "")),
             "target_mode": target_mode,
-            "allow_search": True if target_mode == "wa_directory" else self.allow_search_var.get(),
+            "allow_search": False,
             "items": items,
             "attachment_paths": list(attachment_snapshot),
             "attachment_only_no_caption": bool(attachment_only),

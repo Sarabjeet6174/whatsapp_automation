@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contacts & Lists — WhatsApp Auto</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell ">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">W</div>
+        <span class="brand-text">WhatsApp Auto</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Workflow</div>
+      <a href="index.html" class="nav-item "><span class="nav-icon">📊</span><span>Dashboard</span></a>
+      <a href="profiles.html" class="nav-item "><span class="nav-icon">👤</span><span>Profiles</span></a>
+      <a href="contacts.html" class="nav-item active"><span class="nav-icon">📋</span><span>Contacts & Lists</span></a>
+      <a href="wa_contacts.html" class="nav-item "><span class="nav-icon">💬</span><span>WhatsApp Contacts</span></a>
+      <a href="groups.html" class="nav-item "><span class="nav-icon">👥</span><span>WhatsApp Groups</span></a>
+      <a href="templates.html" class="nav-item "><span class="nav-icon">📝</span><span>Templates</span></a>
+      <a href="send_messages.html" class="nav-item "><span class="nav-icon">📤</span><span>Send Messages</span></a>
+      <a href="schedule.html" class="nav-item "><span class="nav-icon">⏰</span><span>Schedule</span></a>
+      <a href="logs.html" class="nav-item "><span class="nav-icon">📜</span><span>Logs</span></a>
+
+      </nav>
+      <div class="sidebar-footer">
+        <div class="profile-mini">
+          <div class="profile-avatar">JD</div>
+          <div class="profile-info">
+            <div class="profile-name">John Doe</div>
+            <div class="profile-status">+1 555-0199</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">Contacts & Lists</h1>
+        <span class="page-subtitle">Manage contact lists and imports</span>
+      </div>
+      <div class="topbar-right">
+        <div class="search-trigger" title="Command Palette (Ctrl+K)">
+          <span>🔍</span>
+          <span>Search anything…</span>
+          <span class="kbd-shortcut">Ctrl K</span>
+        </div>
+        <div class="toolbar-divider"></div>
+        
+        <button class="btn-icon" title="Notifications">🔔</button>
+        <button class="btn-icon" title="Settings">⚙️</button>
+      </div>
+    </header>
+    <main class="main">
+      <div class="content-scroll">
+        <div class="content-padded">
+
+          <!-- LIST SELECTOR + TOOLBAR -->
+          <div class="toolbar">
+            <select class="form-select" style="width:200px;">
+              <option>All Contacts</option>
+              <option>Customers Q3</option>
+              <option>VIP Leads</option>
+              <option>Newsletter Subs</option>
+            </select>
+            <div class="toolbar-divider"></div>
+            <button class="btn btn-secondary btn-sm" data-modal="addListModal">+ List</button>
+            <button class="btn btn-secondary btn-sm">Rename</button>
+            <button class="btn btn-danger btn-sm">Delete</button>
+            <button class="btn btn-secondary btn-sm">Columns…</button>
+            <div class="toolbar-divider"></div>
+            <button class="btn btn-secondary btn-sm" data-toast="CSV import started…" data-toast-type="warn">📁 Import CSV</button>
+            <div class="toolbar-spacer"></div>
+            <span class="text-tertiary" style="font-size:var(--text-sm)">247 contacts</span>
+          </div>
+
+          <!-- BULK ACTIONS BAR (appears when rows selected) -->
+          <div class="toolbar" style="background:rgba(34,197,94,0.06); border-color:rgba(34,197,94,0.15); margin-bottom:var(--space-3);">
+            <span style="font-size:var(--text-sm); color:var(--text-secondary);"><strong>3</strong> selected</span>
+            <div class="toolbar-divider"></div>
+            <button class="btn btn-secondary btn-sm">New list from selected</button>
+            <button class="btn btn-primary btn-sm">Send selected…</button>
+            <div class="toolbar-spacer"></div>
+            <button class="btn btn-danger btn-sm">Delete selected</button>
+          </div>
+
+          <!-- CONTACTS TABLE -->
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;"><div class="checkbox select-all"></div></th>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Company</th>
+                  <th>Tags</th>
+                  <th style="width:100px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td><input type="text" class="cell-input" value="Alice Johnson"></td>
+                  <td><input type="text" class="cell-input" value="+1 555-0101"></td>
+                  <td><input type="text" class="cell-input" value="alice@acme.co"></td>
+                  <td><input type="text" class="cell-input" value="Acme Corp"></td>
+                  <td><span class="chip chip-blue">lead</span><span class="chip chip-amber">vip</span></td>
+                  <td>
+                    <div class="cell-actions">
+                      <button class="btn-icon btn-sm" title="Send">📤</button>
+                      <button class="btn-icon btn-sm" title="Delete">🗑</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td><input type="text" class="cell-input" value="Bob Smith"></td>
+                  <td><input type="text" class="cell-input" value="+1 555-0102"></td>
+                  <td><input type="text" class="cell-input" value="bob@tech.io"></td>
+                  <td><input type="text" class="cell-input" value="TechStart"></td>
+                  <td><span class="chip chip-green">customer</span></td>
+                  <td>
+                    <div class="cell-actions">
+                      <button class="btn-icon btn-sm" title="Send">📤</button>
+                      <button class="btn-icon btn-sm" title="Delete">🗑</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td><input type="text" class="cell-input" value="Carol White"></td>
+                  <td><input type="text" class="cell-input" value="+1 555-0103"></td>
+                  <td><input type="text" class="cell-input" value="carol@design.studio"></td>
+                  <td><input type="text" class="cell-input" value="Design Studio"></td>
+                  <td><span class="chip chip-blue">lead</span></td>
+                  <td>
+                    <div class="cell-actions">
+                      <button class="btn-icon btn-sm" title="Send">📤</button>
+                      <button class="btn-icon btn-sm" title="Delete">🗑</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td><input type="text" class="cell-input" value="David Lee"></td>
+                  <td><input type="text" class="cell-input" value="+1 555-0104"></td>
+                  <td><input type="text" class="cell-input" value="david@global.net"></td>
+                  <td><input type="text" class="cell-input" value="Global Inc"></td>
+                  <td><span class="chip chip-green">customer</span><span class="chip chip-amber">vip</span></td>
+                  <td>
+                    <div class="cell-actions">
+                      <button class="btn-icon btn-sm" title="Send">📤</button>
+                      <button class="btn-icon btn-sm" title="Delete">🗑</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td><input type="text" class="cell-input" value="Eva Martinez"></td>
+                  <td><input type="text" class="cell-input" value="+1 555-0105"></td>
+                  <td><input type="text" class="cell-input" value="eva@retail.com"></td>
+                  <td><input type="text" class="cell-input" value="Retail Co"></td>
+                  <td><span class="chip chip-gray">prospect</span></td>
+                  <td>
+                    <div class="cell-actions">
+                      <button class="btn-icon btn-sm" title="Send">📤</button>
+                      <button class="btn-icon btn-sm" title="Delete">🗑</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ADD LIST MODAL -->
+          <div class="modal-overlay" id="addListModal">
+            <div class="modal" style="max-width:400px;">
+              <div class="modal-header">
+                <div class="modal-title">New Contact List</div>
+                <button class="btn-icon" onclick="closeModal('addListModal')">✕</button>
+              </div>
+              <div class="modal-body">
+                <div class="form-group">
+                  <label class="form-label">List Name</label>
+                  <input type="text" class="form-input" placeholder="e.g. Q4 Prospects">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Custom Fields (optional)</label>
+                  <input type="text" class="form-input" placeholder="company, role, source (comma separated)">
+                  <span class="form-hint">These columns will appear in the table</span>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal('addListModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="closeModal('addListModal'); showToast('List created', 'success');">Create List</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+  <!-- COMMAND PALETTE OVERLAY -->
+    <div class="modal-overlay" id="paletteOverlay"></div>
+    <div class="command-palette" id="commandPalette">
+      <input type="text" class="cp-input" id="cpInput" placeholder="Type a command or search…">
+      <div class="cp-results">
+        <div class="cp-item selected">
+          <div class="cp-item-icon">📤</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">Send Messages</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Open the send workflow</div>
+          </div>
+          <span class="cp-item-meta">G S</span>
+        </div>
+        <div class="cp-item">
+          <div class="cp-item-icon">👤</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">New Profile</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Create a new WhatsApp profile</div>
+          </div>
+          <span class="cp-item-meta">G P</span>
+        </div>
+        <div class="cp-item">
+          <div class="cp-item-icon">📋</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">Import Contacts</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Import from CSV file</div>
+          </div>
+          <span class="cp-item-meta">G I</span>
+        </div>
+        <div class="cp-item">
+          <div class="cp-item-icon">⏰</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">View Schedule</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Check pending jobs</div>
+          </div>
+          <span class="cp-item-meta">G D</span>
+        </div>
+      </div>
+    </div>
+  <div class="toast-container" id="toastContainer"></div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Contacts — WhatsApp Auto</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell ">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">W</div>
+        <span class="brand-text">WhatsApp Auto</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Workflow</div>
+      <a href="index.html" class="nav-item "><span class="nav-icon">📊</span><span>Dashboard</span></a>
+      <a href="profiles.html" class="nav-item "><span class="nav-icon">👤</span><span>Profiles</span></a>
+      <a href="contacts.html" class="nav-item "><span class="nav-icon">📋</span><span>Contacts & Lists</span></a>
+      <a href="wa_contacts.html" class="nav-item active"><span class="nav-icon">💬</span><span>WhatsApp Contacts</span></a>
+      <a href="groups.html" class="nav-item "><span class="nav-icon">👥</span><span>WhatsApp Groups</span></a>
+      <a href="templates.html" class="nav-item "><span class="nav-icon">📝</span><span>Templates</span></a>
+      <a href="send_messages.html" class="nav-item "><span class="nav-icon">📤</span><span>Send Messages</span></a>
+      <a href="schedule.html" class="nav-item "><span class="nav-icon">⏰</span><span>Schedule</span></a>
+      <a href="logs.html" class="nav-item "><span class="nav-icon">📜</span><span>Logs</span></a>
+
+      </nav>
+      <div class="sidebar-footer">
+        <div class="profile-mini">
+          <div class="profile-avatar">JD</div>
+          <div class="profile-info">
+            <div class="profile-name">John Doe</div>
+            <div class="profile-status">+1 555-0199</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">WhatsApp Contacts</h1>
+        <span class="page-subtitle">Sync from WhatsApp Web</span>
+      </div>
+      <div class="topbar-right">
+        <div class="search-trigger" title="Command Palette (Ctrl+K)">
+          <span>🔍</span>
+          <span>Search anything…</span>
+          <span class="kbd-shortcut">Ctrl K</span>
+        </div>
+        <div class="toolbar-divider"></div>
+        
+        <button class="btn-icon" title="Notifications">🔔</button>
+        <button class="btn-icon" title="Settings">⚙️</button>
+      </div>
+    </header>
+    <main class="main">
+      <div class="content-scroll">
+        <div class="content-padded">
+
+          <!-- TOOLBAR -->
+          <div class="toolbar">
+            <button class="btn btn-secondary">Open WhatsApp</button>
+            <button class="btn btn-primary" data-toast="Syncing contacts from WhatsApp Web…" data-toast-type="warn">↻ Load from WhatsApp</button>
+            <div class="toolbar-divider"></div>
+            <button class="btn btn-secondary btn-sm">📤 Export CSV</button>
+            <button class="btn btn-danger btn-sm" data-modal="clearWAModal">Clear Saved</button>
+            <div class="toolbar-spacer"></div>
+            <span class="text-tertiary" style="font-size:var(--text-sm)">89 synced contacts</span>
+          </div>
+
+          <!-- WA CONTACTS TABLE -->
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;"><div class="checkbox select-all"></div></th>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Status</th>
+                  <th>Last Synced</th>
+                  <th style="width:80px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td style="font-weight:500; color:var(--text-primary);">Alice Johnson</td>
+                  <td style="font-family:var(--font-mono); font-size:var(--text-xs);">+1 555-0101</td>
+                  <td><span class="chip chip-green">Available</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-tertiary);">Today 09:15</td>
+                  <td>
+                    <div class="cell-actions" style="opacity:1;">
+                      <button class="btn-icon btn-sm" title="Send">📤</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td style="font-weight:500; color:var(--text-primary);">Bob Smith</td>
+                  <td style="font-family:var(--font-mono); font-size:var(--text-xs);">+1 555-0102</td>
+                  <td><span class="chip chip-gray">Last seen 2h ago</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-tertiary);">Today 09:15</td>
+                  <td>
+                    <div class="cell-actions" style="opacity:1;">
+                      <button class="btn-icon btn-sm" title="Send">📤</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td style="font-weight:500; color:var(--text-primary);">Carol White</td>
+                  <td style="font-family:var(--font-mono); font-size:var(--text-xs);">+1 555-0103</td>
+                  <td><span class="chip chip-green">Available</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-tertiary);">Today 09:15</td>
+                  <td>
+                    <div class="cell-actions" style="opacity:1;">
+                      <button class="btn-icon btn-sm" title="Send">📤</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td style="font-weight:500; color:var(--text-primary);">David Lee</td>
+                  <td style="font-family:var(--font-mono); font-size:var(--text-xs);">+1 555-0104</td>
+                  <td><span class="chip chip-gray">Last seen yesterday</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-tertiary);">Today 09:15</td>
+                  <td>
+                    <div class="cell-actions" style="opacity:1;">
+                      <button class="btn-icon btn-sm" title="Send">📤</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td style="font-weight:500; color:var(--text-primary);">Eva Martinez</td>
+                  <td style="font-family:var(--font-mono); font-size:var(--text-xs);">+1 555-0105</td>
+                  <td><span class="chip chip-green">Available</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-tertiary);">Today 09:15</td>
+                  <td>
+                    <div class="cell-actions" style="opacity:1;">
+                      <button class="btn-icon btn-sm" title="Send">📤</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- BULK SEND BAR -->
+          <div class="toolbar" style="background:rgba(34,197,94,0.06); border-color:rgba(34,197,94,0.15); margin-top:var(--space-3);">
+            <span style="font-size:var(--text-sm); color:var(--text-secondary);"><strong>0</strong> selected</span>
+            <div class="toolbar-spacer"></div>
+            <button class="btn btn-primary btn-sm" disabled>Send Selected…</button>
+          </div>
+
+          <!-- CLEAR CONFIRMATION MODAL -->
+          <div class="modal-overlay" id="clearWAModal">
+            <div class="modal" style="max-width:380px;">
+              <div class="modal-header">
+                <div class="modal-title">Clear Synced Contacts?</div>
+                <button class="btn-icon" onclick="closeModal('clearWAModal')">✕</button>
+              </div>
+              <div class="modal-body">
+                <p style="font-size:var(--text-sm); color:var(--text-secondary); line-height:1.6;">
+                  This will remove all 89 synced WhatsApp contacts from the local directory. Your contact lists will not be affected. You can re-sync anytime.
+                </p>
+              </div>
+              <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal('clearWAModal')">Cancel</button>
+                <button class="btn btn-danger" onclick="closeModal('clearWAModal'); showToast('Synced contacts cleared', 'warn');">Clear All</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+  <!-- COMMAND PALETTE OVERLAY -->
+    <div class="modal-overlay" id="paletteOverlay"></div>
+    <div class="command-palette" id="commandPalette">
+      <input type="text" class="cp-input" id="cpInput" placeholder="Type a command or search…">
+      <div class="cp-results">
+        <div class="cp-item selected">
+          <div class="cp-item-icon">📤</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">Send Messages</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Open the send workflow</div>
+          </div>
+          <span class="cp-item-meta">G S</span>
+        </div>
+        <div class="cp-item">
+          <div class="cp-item-icon">👤</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">New Profile</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Create a new WhatsApp profile</div>
+          </div>
+          <span class="cp-item-meta">G P</span>
+        </div>
+        <div class="cp-item">
+          <div class="cp-item-icon">📋</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">Import Contacts</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Import from CSV file</div>
+          </div>
+          <span class="cp-item-meta">G I</span>
+        </div>
+        <div class="cp-item">
+          <div class="cp-item-icon">⏰</div>
+          <div>
+            <div style="font-weight:600;color:var(--text-primary)">View Schedule</div>
+            <div style="font-size:11px;color:var(--text-tertiary)">Check pending jobs</div>
+          </div>
+          <span class="cp-item-meta">G D</span>
+        </div>
+      </div>
+    </div>
+  <div class="toast-container" id="toastContainer"></div>
+  <script src="app.js"></script>
+</body>
+</html>

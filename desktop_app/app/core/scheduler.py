@@ -7,7 +7,7 @@ from typing import Callable, Dict, Optional
 
 from app.core.profile_state import ProfileState
 from app.core.message_loop import run_loop_for_profile
-from app.whatsapp.sender import create_driver_for_profile, open_whatsapp_web
+from app.whatsapp.sender import create_driver_for_profile, is_driver_alive, open_whatsapp_web
 from app.db.sql import log_app_activity
 
 logger = logging.getLogger(__name__)
@@ -36,8 +36,10 @@ class Scheduler:
     def open_profile(self, profile: ProfileState) -> str:
         """Open WhatsApp Web for this profile. Returns 'SUCCESS' or error message."""
         if profile.get_driver() is not None:
-            self._emit(profile, "profile_open", "Profile already open.")
-            return "SUCCESS"
+            if is_driver_alive(profile.get_driver()):
+                self._emit(profile, "profile_open", "Profile already open.")
+                return "SUCCESS"
+            profile.set_driver(None)
         try:
             driver = create_driver_for_profile(profile.client_phno)
             profile.set_driver(driver)

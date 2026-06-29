@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, QDateTime
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -13,8 +13,10 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -38,12 +40,14 @@ class GroupsPage(QWidget):
     open_send_requested = Signal(object)
     _sync_finished = Signal(str)
     _members_finished = Signal(str)
+    _live_log_line = Signal(str)
 
     def __init__(self, workflow: LocalWorkflowController, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._workflow = workflow
         self._sync_finished.connect(self._on_sync_finished)
         self._members_finished.connect(self._on_members_finished)
+        self._live_log_line.connect(self._append_live_log)
 
         v = QVBoxLayout(self)
         v.setContentsMargins(40, 36, 48, 36)
@@ -102,11 +106,33 @@ class GroupsPage(QWidget):
         self._table.verticalHeader().setVisible(False)
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self._table.setMinimumHeight(380)
+        self._table.setMinimumHeight(200)
+        self._table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._table.setAlternatingRowColors(True)
-        v.addWidget(self._table)
+        v.addWidget(self._table, 1)
+
+        v.addSpacing(10)
+        log_label = QLabel("Live activity")
+        log_label.setProperty("class", "fieldLabel")
+        log_label.setContentsMargins(0, 4, 0, 0)
+        v.addWidget(log_label, 0)
+        self._activity = QTextEdit()
+        self._activity.setReadOnly(True)
+        self._activity.setPlaceholderText(
+            "Progress appears here while “Add members to contact list” runs…"
+        )
+        self._activity.setMinimumHeight(120)
+        self._activity.setMaximumHeight(180)
+        self._activity.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        v.addWidget(self._activity, 0)
 
         self.reload_profiles()
+
+    def _append_live_log(self, line: str) -> None:
+        ts = QDateTime.currentDateTime().toString("HH:mm:ss")
+        self._activity.append(f"[{ts}] {line}")
+        sb = self._activity.verticalScrollBar()
+        sb.setValue(sb.maximum())
 
     def reload_profiles(self) -> None:
         populate_profile_combo(self._combo, fetch_local_profiles())
@@ -217,7 +243,9 @@ class GroupsPage(QWidget):
                 "Select one or more saved group rows first (same names as in WhatsApp).",
             )
             return
-        self.status_message.emit("Opening group(s) and reading members…")
+        self.status_message.emit("Opening group(s) and reading members (large groups may take a few minutes)…")
+        self._activity.clear()
+        self._live_log_line.emit("Starting add members to contact list…")
 
         def work() -> None:
             st, err = self._workflow.ensure_local_profile_ready(
@@ -233,9 +261,15 @@ class GroupsPage(QWidget):
             pid = int(p["id"])
             total_written = 0
             total_read = 0
-            total_written = 0
+
+            def progress(msg: str) -> None:
+                self._live_log_line.emit(msg)
+
             for gname in names:
-                status, rows = sync_group_members_to_whatsapp_directory(driver, gname)
+                self._live_log_line.emit(f"--- Group: {gname} ---")
+                status, rows = sync_group_members_to_whatsapp_directory(
+                    driver, gname, progress=progress
+                )
                 if status != "SUCCESS":
                     self._members_finished.emit(f"{gname}: {status}")
                     return
@@ -253,16 +287,15 @@ class GroupsPage(QWidget):
         if msg.startswith("OK:"):
             parts = msg.split(":")
             n_saved = parts[1] if len(parts) > 1 else "0"
-            n_read = parts[2] if len(parts) > 2 else ""
+            n_read = parts[2] if len(parts) > 2 else "0"
             self.status_message.emit(
-                f"Merged {n_saved} contact row(s) from {n_read} member detail(s) read."
+                f"Saved {n_saved} contact row(s) from {n_read} group member(s)."
             )
             QMessageBox.information(
                 self,
                 "Add members",
-                f"Merged {n_saved} row(s) into Contacts & Lists "
-                f"(read {n_read} member detail(s)). "
-                "Open Contacts & Lists page and select the group-named list to review.",
+                f"Finished: {n_read} member(s) read, {n_saved} row(s) saved to Contacts & Lists.\n\n"
+                "Open Contacts & Lists and select the group-named list to review.",
             )
         else:
             self.status_message.emit(msg)

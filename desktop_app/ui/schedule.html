@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schedule — WhatsApp Auto</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell ">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">W</div>
+        <span class="brand-text">WhatsApp Auto</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Workflow</div>
+      <a href="index.html" class="nav-item "><span class="nav-icon">📊</span><span>Dashboard</span></a>
+      <a href="profiles.html" class="nav-item "><span class="nav-icon">👤</span><span>Profiles</span></a>
+      <a href="contacts.html" class="nav-item "><span class="nav-icon">📋</span><span>Contacts & Lists</span></a>
+      <a href="wa_contacts.html" class="nav-item "><span class="nav-icon">💬</span><span>WhatsApp Contacts</span></a>
+      <a href="groups.html" class="nav-item "><span class="nav-icon">👥</span><span>WhatsApp Groups</span></a>
+      <a href="templates.html" class="nav-item "><span class="nav-icon">📝</span><span>Templates</span></a>
+      <a href="send_messages.html" class="nav-item "><span class="nav-icon">📤</span><span>Send Messages</span></a>
+      <a href="schedule.html" class="nav-item active"><span class="nav-icon">⏰</span><span>Schedule</span></a>
+      <a href="logs.html" class="nav-item "><span class="nav-icon">📜</span><span>Logs</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="profile-mini">
+          <div class="profile-avatar">JD</div>
+          <div class="profile-info">
+            <div class="profile-name">John Doe</div>
+            <div class="profile-status">+1 555-0199</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">Schedule</h1>
+        <span class="page-subtitle">Manage scheduled jobs</span>
+      </div>
+      <div class="topbar-right">
+        <div class="search-trigger" title="Command Palette (Ctrl+K)">
+          <span>🔍</span>
+          <span>Search anything…</span>
+          <span class="kbd-shortcut">Ctrl K</span>
+        </div>
+        <div class="toolbar-divider"></div>
+        <button class="btn-icon" title="Notifications">🔔</button>
+        <button class="btn-icon" title="Settings">⚙️</button>
+      </div>
+    </header>
+    <main class="main">
+      <div class="content-scroll">
+        <div class="content-padded">
+
+          <div class="toolbar">
+            <button class="btn btn-secondary" data-toast="Jobs refreshed" data-toast-type="success">↻ Refresh</button>
+            <button class="btn btn-secondary btn-sm" disabled>Edit Selected</button>
+            <button class="btn btn-danger btn-sm" disabled>Delete Selected</button>
+            <div class="toolbar-spacer"></div>
+            <div class="segmented">
+              <button class="segmented-item active">All</button>
+              <button class="segmented-item">Pending</button>
+              <button class="segmented-item">Dispatched</button>
+              <button class="segmented-item">Failed</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width:40px;"><div class="checkbox select-all"></div></th>
+                  <th>Run At</th>
+                  <th>Status</th>
+                  <th>Target</th>
+                  <th>Recipients</th>
+                  <th>Message</th>
+                  <th>Items</th>
+                  <th>Last Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td style="font-family:var(--font-mono); font-size:var(--text-xs); color:var(--text-primary);">Today 14:00</td>
+                  <td><span class="status status-pending">Pending</span></td>
+                  <td style="font-weight:500; color:var(--text-primary);">Welcome Blast</td>
+                  <td><span class="chip chip-blue">24</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-secondary); max-width:200px; overflow:hidden; text-overflow:ellipsis;">Hi {{name}}, welcome!</td>
+                  <td><span class="chip chip-gray">2 files</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-tertiary);">—</td>
+                </tr>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td style="font-family:var(--font-mono); font-size:var(--text-xs); color:var(--text-primary);">Today 16:30</td>
+                  <td><span class="status status-pending">Pending</span></td>
+                  <td style="font-weight:500; color:var(--text-primary);">Follow-up Q3</td>
+                  <td><span class="chip chip-blue">156</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-secondary); max-width:200px; overflow:hidden; text-overflow:ellipsis;">Hey {{name}}, checking in</td>
+                  <td><span class="chip chip-gray">—</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-tertiary);">—</td>
+                </tr>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td style="font-family:var(--font-mono); font-size:var(--text-xs); color:var(--text-primary);">Today 09:15</td>
+                  <td><span class="status status-dispatched">Dispatched</span></td>
+                  <td style="font-weight:500; color:var(--text-primary);">Morning Promo</td>
+                  <td><span class="chip chip-blue">312</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-secondary); max-width:200px; overflow:hidden; text-overflow:ellipsis;">20% off this week!</td>
+                  <td><span class="chip chip-gray">1 file</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-tertiary);">—</td>
+                </tr>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td style="font-family:var(--font-mono); font-size:var(--text-xs); color:var(--text-primary);">Yesterday 11:00</td>
+                  <td><span class="status status-success">Completed</span></td>
+                  <td style="font-weight:500; color:var(--text-primary);">Newsletter May</td>
+                  <td><span class="chip chip-blue">89</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-secondary); max-width:200px; overflow:hidden; text-overflow:ellipsis;">Your monthly newsletter</td>
+                  <td><span class="chip chip-gray">3 files</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-tertiary);">—</td>
+                </tr>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td style="font-family:var(--font-mono); font-size:var(--text-xs); color:var(--text-primary);">Yesterday 11:00</td>
+                  <td><span class="status status-error">Failed</span></td>
+                  <td style="font-weight:500; color:var(--text-primary);">Newsletter May</td>
+                  <td><span class="chip chip-blue">1</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-secondary); max-width:200px; overflow:hidden; text-overflow:ellipsis;">Your monthly newsletter</td>
+                  <td><span class="chip chip-gray">3 files</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--accent-danger); max-width:180px; overflow:hidden; text-overflow:ellipsis;" title="Session timeout">Session timeout</td>
+                </tr>
+                <tr>
+                  <td><div class="checkbox"></div></td>
+                  <td style="font-family:var(--font-mono); font-size:var(--text-xs); color:var(--text-primary);">May 8 08:00</td>
+                  <td><span class="status status-pending">Pending</span></td>
+                  <td style="font-weight:500; color:var(--text-primary);">Meeting Reminders</td>
+                  <td><span class="chip chip-blue">42</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-secondary); max-width:200px; overflow:hidden; text-overflow:ellipsis;">Reminder: Meeting at {{time}}</td>
+                  <td><span class="chip chip-gray">—</span></td>
+                  <td style="font-size:var(--text-xs); color:var(--text-tertiary);">—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="margin-top:var(--space-3); display:flex; align-items:center; gap:var(--space-2); font-size:var(--text-xs); color:var(--text-tertiary);">
+            <span>💡</span>
+            <span>Double-click any row to edit a pending job.</span>
+          </div>
+
+          <div class="modal-overlay" id="editJobModal">
+            <div class="modal" style="max-width:440px;">
+              <div class="modal-header">
+                <div class="modal-title">Edit Scheduled Job</div>
+                <button class="btn-icon" onclick="closeModal('editJobModal')">✕</button>
+              </div>
+              <div class="modal-body">
+                <div style="background:var(--bg-elevated); border-radius:var(--radius-md); padding:var(--space-3); margin-bottom:var(--space-4);">
+                  <div style="font-size:var(--text-xs); color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:var(--space-1);">Current Job</div>
+                  <div style="font-size:var(--text-sm); color:var(--text-primary); font-weight:500;">Welcome Blast</div>
+                  <div style="font-size:var(--text-xs); color:var(--text-tertiary);">24 recipients · 2 attachments</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">New Run Time</label>
+                  <div class="datetime-picker">
+                    <input type="date" class="form-input" value="2026-05-06">
+                    <input type="time" class="form-input" value="14:00">
+                    <select class="form-select">
+                      <option>EDT</option>
+                      <option>CDT</option>
+                      <option>PDT</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Message (optional edit)</label>
+                  <textarea class="form-textarea" style="min-height:80px;">Hi {{name}}, welcome to {{company}}! 🎉</textarea>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal('editJobModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="closeModal('editJobModal'); showToast('Job updated successfully', 'success');">Save Changes</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+  <div class="modal-overlay" id="paletteOverlay"></div>
+  <div class="command-palette" id="commandPalette">
+    <input type="text" class="cp-input" id="cpInput" placeholder="Type a command or search…">
+    <div class="cp-results">
+      <div class="cp-item selected">
+        <div class="cp-item-icon">📤</div>
+        <div><div style="font-weight:600;color:var(--text-primary)">Send Messages</div><div style="font-size:11px;color:var(--text-tertiary)">Open the send workflow</div></div>
+        <span class="cp-item-meta">G S</span>
+      </div>
+      <div class="cp-item">
+        <div class="cp-item-icon">👤</div>
+        <div><div style="font-weight:600;color:var(--text-primary)">New Profile</div><div style="font-size:11px;color:var(--text-tertiary)">Create a new WhatsApp profile</div></div>
+        <span class="cp-item-meta">G P</span>
+      </div>
+      <div class="cp-item">
+        <div class="cp-item-icon">📋</div>
+        <div><div style="font-weight:600;color:var(--text-primary)">Import Contacts</div><div style="font-size:11px;color:var(--text-tertiary)">Import from CSV file</div></div>
+        <span class="cp-item-meta">G I</span>
+      </div>
+      <div class="cp-item">
+        <div class="cp-item-icon">⏰</div>
+        <div><div style="font-weight:600;color:var(--text-primary)">View Schedule</div><div style="font-size:11px;color:var(--text-tertiary)">Check pending jobs</div></div>
+        <span class="cp-item-meta">G D</span>
+      </div>
+    </div>
+  </div>
+  <div class="toast-container" id="toastContainer"></div>
+  <script src="app.js"></script>
+</body>
+</html>
